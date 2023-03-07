@@ -1,0 +1,40 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+.bin
+
+# Test binary, built with `go test -c`
+*.test
+.run
+
+# Local environment
+.env
+.in
+.out
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# IDE support files
+.idea
+.vscode
+
+# MacOS file system metadata
+.DS_Store
+
+# local credentials
+.credentials
+
+# Keep out some temporary example code and temprary file
+temp/
+tmp/
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# Output of the go coverage tool
+testoutput/
+
