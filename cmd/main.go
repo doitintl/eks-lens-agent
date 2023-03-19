@@ -3,12 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 
-	"goapp/internal/config"
-
+	"github.com/doitintl/eks-lens-agent/internal/config"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"k8s.io/client-go/dynamic"
@@ -19,10 +18,11 @@ import (
 )
 
 var (
-	version   = "dev"
-	buildDate = "unknown"
-	gitCommit = "dirty"
-	gitBranch = "master"
+	version      = "dev"
+	buildDate    = "unknown"
+	gitCommit    = "dirty"
+	gitBranch    = "master"
+	errEmptyPath = errors.New("empty path")
 )
 
 func runController(ctx context.Context, log *logrus.Entry, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface) error {
@@ -33,29 +33,29 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 	ctx, ctxCancel := context.WithCancel(ctx)
 	defer ctxCancel()
 
-	log.Infof("kost agent started")
+	log.Infof("eks-lens agent started")
 
 	restconfig, err := retrieveKubeConfig(log, cfg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "retrieving kube config")
 	}
 
 	clientset, err := kubernetes.NewForConfig(restconfig)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "initializing kubernetes client")
 	}
 
 	dynamicClient, err := dynamic.NewForConfig(restconfig)
 	if err != nil {
-		return fmt.Errorf("initializing dynamic client: %w", err)
+		return errors.Wrap(err, "initializing dynamic client")
 	}
 
 	err = runController(ctx, log, clientset, dynamicClient)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "running controller")
 	}
 
-	log.Infof("kost agent stopped")
+	log.Infof("eks-lens agent stopped")
 	return nil
 }
 
@@ -66,7 +66,7 @@ func mainCmd(c *cli.Context) error {
 	cfg := config.Get()
 
 	if err := run(ctx, log, cfg); err != nil {
-		log.Fatalf("kost agent failed: %v", err)
+		log.Fatalf("eks-lens agent failed: %v", err)
 	}
 
 	return nil
@@ -85,13 +85,13 @@ func main() {
 				Usage: "string app flag",
 			},
 		},
-		Name:    "kost-agent",
-		Usage:   "kost-agent is a simple agent for kost",
+		Name:    "eks-lens-agent",
+		Usage:   "eks-lens-agent is a data collection agent for EKS Lens",
 		Action:  mainCmd,
 		Version: version,
 	}
 	cli.VersionPrinter = func(c *cli.Context) {
-		fmt.Printf("goapp %s\n", version)
+		fmt.Printf("eks-lens-agent %s\n", version)
 		fmt.Printf("  Build date: %s\n", buildDate)
 		fmt.Printf("  Git commit: %s\n", gitCommit)
 		fmt.Printf("  Git branch: %s\n", gitBranch)
@@ -100,13 +100,13 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }
 
 func kubeConfigFromPath(kubepath string) (*rest.Config, error) {
 	if kubepath == "" {
-		return nil, nil
+		return nil, errEmptyPath
 	}
 
 	data, err := os.ReadFile(kubepath)
@@ -124,19 +124,19 @@ func kubeConfigFromPath(kubepath string) (*rest.Config, error) {
 
 func retrieveKubeConfig(log logrus.FieldLogger, cfg config.Config) (*rest.Config, error) {
 	kubeconfig, err := kubeConfigFromPath(cfg.Kubeconfig)
-	if err != nil {
-		return nil, err
+	if err != nil && !errors.Is(err, errEmptyPath) {
+		return nil, errors.Wrap(err, "retrieving kube config from path")
 	}
 
 	if kubeconfig != nil {
-		log.Debug("using kubeconfig from env variables")
+		log.Debug("using kube config from env variables")
 		return kubeconfig, nil
 	}
 
 	inClusterConfig, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "retrieving in cluster kube config")
 	}
-	log.Debug("using in cluster kubeconfig")
+	log.Debug("using in cluster kube config")
 	return inClusterConfig, nil
 }

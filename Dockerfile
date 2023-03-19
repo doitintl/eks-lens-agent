@@ -36,7 +36,7 @@ COPY . .
 RUN TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH} make
 
 #
-# ------ gtoken release Docker image ------
+# ------ release Docker image ------
 #
 FROM scratch
 
@@ -49,9 +49,9 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /etc/passwd.min /etc/passwd
 
 # this is the last command since it's never cached
-COPY --from=build /go/src/app/.bin/kost-agent /kost-agent
+COPY --from=build /go/src/app/.bin/eks-lens-agent /eks-lens-agent
 
 # set user nobody
 USER nobody
 
-ENTRYPOINT ["/kost-agent"]
+ENTRYPOINT ["/eks-lens-agent"]
