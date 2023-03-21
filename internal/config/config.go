@@ -3,6 +3,7 @@ package config
 type Config struct {
 	// Kubeconfig is the path to the kubeconfig file
 	Kubeconfig string
+	StreamName string
 }
 
 var cfg *Config
