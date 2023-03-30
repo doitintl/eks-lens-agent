@@ -9,12 +9,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/firehose"
 	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
-	_types "github.com/doitintl/eks-lens-agent/internal/usage"
+	"github.com/doitintl/eks-lens-agent/internal/usage"
 	"github.com/pkg/errors"
 )
 
 type Uploader interface {
-	Upload(ctx context.Context, records []*_types.Pod) error
+	Upload(ctx context.Context, records []*usage.PodInfo) error
+	UploadOne(ctx context.Context, record *usage.PodInfo) error
 }
 
 type firehoseUploader struct {
@@ -37,7 +38,7 @@ func NewUploader(ctx context.Context, streamName string) (Uploader, error) {
 
 // Upload records toAmazon Kinesis Data Firehose using the PutRecordBatch API
 // https://docs.aws.amazon.com/firehose/latest/APIReference/API_PutRecordBatch.html
-func (u *firehoseUploader) Upload(ctx context.Context, records []*_types.Pod) error {
+func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo) error {
 	// send records to Amazon Kinesis Data Firehose by batches of 500 records
 	for i := 0; i < len(records); i += 500 {
 		j := i + 500
@@ -71,6 +72,29 @@ func (u *firehoseUploader) Upload(ctx context.Context, records []*_types.Pod) er
 		if err != nil {
 			return errors.Wrap(err, "putting record batch to Amazon Kinesis Data Firehose")
 		}
+	}
+	return nil
+}
+
+func (u *firehoseUploader) UploadOne(ctx context.Context, record *usage.PodInfo) error {
+	buffer, err := json.Marshal(record)
+	if err != nil {
+		return errors.Wrap(err, "marshaling record")
+	}
+	dst := &bytes.Buffer{}
+	err = json.Compact(dst, buffer)
+	if err != nil {
+		return errors.Wrap(err, "compacting record")
+	}
+	input := &firehose.PutRecordInput{
+		DeliveryStreamName: aws.String(u.StreamName),
+		Record: &types.Record{
+			Data: dst.Bytes(),
+		},
+	}
+	_, err = u.Client.PutRecord(ctx, input)
+	if err != nil {
+		return errors.Wrap(err, "putting single record to Amazon Kinesis Data Firehose")
 	}
 	return nil
 }

@@ -1,17 +1,22 @@
 package config
 
+import (
+	"github.com/urfave/cli/v2"
+)
+
 type Config struct {
-	// Kubeconfig is the path to the kubeconfig file
-	Kubeconfig string
-	StreamName string
+	// KubeConfigPath is the path to the kubeconfig file
+	KubeConfigPath string `json:"kubeconfig"`
+	// ClusterName is the name of the EKS cluster
+	ClusterName string `json:"cluster-name"`
+	// Amazon Kinesis Data Stream name
+	StreamName string `json:"stream-name"`
 }
 
-var cfg *Config
-
-func Get() Config {
-	if cfg != nil {
-		return *cfg
-	}
-	cfg = &Config{}
-	return *cfg
+func LoadConfig(c *cli.Context) Config {
+	var cfg Config
+	cfg.KubeConfigPath = c.String("kubeconfig")
+	cfg.ClusterName = c.String("cluster-name")
+	cfg.StreamName = c.String("stream-name")
+	return cfg
 }

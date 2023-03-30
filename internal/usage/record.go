@@ -30,7 +30,7 @@ type Capacity struct {
 	Storage int64 // json:"storage"
 }
 
-type Node struct {
+type NodeInfo struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
 	Cluster      string `json:"cluster"`
@@ -53,11 +53,11 @@ type Node struct {
 	Created        time.Time `json:"created"`
 }
 
-type Pod struct {
+type PodInfo struct {
 	Name      string            `json:"name"`
 	Namespace string            `json:"namespace"`
 	Labels    map[string]string `json:"labels,omitempty"`
-	Node      Node              `json:"node"`
+	Node      NodeInfo          `json:"node"`
 	QosClass  string            `json:"qosClass"`
 	StartTime time.Time         `json:"startTime"`
 	BeginTime time.Time         `json:"beginTime"`
@@ -65,7 +65,7 @@ type Pod struct {
 	Resources Resources         `json:"resources,omitempty"`
 }
 
-func NodeFromK8s(cluster string, node v1.Node) Node {
+func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 	// get compute type from node label, default to ec2
 	computeType := node.GetLabels()["eks.amazonaws.com/compute-type"]
 	if computeType == "" {
@@ -84,7 +84,7 @@ func NodeFromK8s(cluster string, node v1.Node) Node {
 		id = id[strings.LastIndex(id, "/")+1:]
 	}
 
-	result := Node{
+	result := NodeInfo{
 		ID:             id,
 		Name:           node.GetName(),
 		Cluster:        cluster,
@@ -117,10 +117,37 @@ func NodeFromK8s(cluster string, node v1.Node) Node {
 	return result
 }
 
-func NodeListToMap(cluster string, nodes *v1.NodeList) map[string]Node {
-	result := make(map[string]Node, len(nodes.Items))
-	for _, node := range nodes.Items {
-		result[node.GetName()] = NodeFromK8s(cluster, node)
+func NewPodInfo(pod v1.Pod, beginTime time.Time, endTime time.Time, node *NodeInfo) *PodInfo {
+	record := &PodInfo{}
+	record.Name = pod.GetName()
+	record.Namespace = pod.GetNamespace()
+	// calculate pod's requested CPU and memory for all containers
+	for _, container := range pod.Spec.Containers {
+		record.Resources.Requests.CPU += container.Resources.Requests.Cpu().MilliValue()
+		record.Resources.Requests.Memory += container.Resources.Requests.Memory().Value()
+		record.Resources.Limits.CPU += container.Resources.Limits.Cpu().MilliValue()
+		record.Resources.Limits.Memory += container.Resources.Limits.Memory().Value()
 	}
-	return result
+	// copy pod labels, skip ending with "-hash"
+	record.Labels = make(map[string]string)
+	for k, v := range pod.GetLabels() {
+		if !strings.HasSuffix(k, "-hash") {
+			record.Labels[k] = v
+		}
+	}
+	// copy pod QoS class
+	record.QosClass = string(pod.Status.QOSClass)
+	// set pod measured time
+	record.BeginTime = beginTime
+	record.EndTime = endTime
+	// copy pod start time
+	record.StartTime = pod.Status.StartTime.Time
+	// update pod begin time to the earliest pod start time
+	if record.StartTime.Before(beginTime) {
+		record.BeginTime = record.StartTime
+	}
+	if node != nil {
+		record.Node = *node
+	}
+	return record
 }

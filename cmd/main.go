@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"strings"
-	"time"
 
 	"github.com/doitintl/eks-lens-agent/internal/aws/firehose"
 	"github.com/doitintl/eks-lens-agent/internal/config"
-	"github.com/doitintl/eks-lens-agent/internal/usage"
+	"github.com/doitintl/eks-lens-agent/internal/controller"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -30,75 +27,22 @@ var (
 )
 
 func runController(ctx context.Context, cluster string, log *logrus.Entry, clientset *kubernetes.Clientset, uploader firehose.Uploader) error {
-	// get all pods in all namespaces
-	log.Debug("listing pods")
-	pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	// load nodes
+	nodesInformer := controller.NewNodesInformer()
+	loaded := nodesInformer.Load(ctx, cluster, clientset)
+	// wait for nodes to be loaded
+	<-loaded
+
+	// create controller and run it
+	scanner := controller.New(clientset, uploader)
+	err := scanner.Run(ctx, log, nodesInformer)
 	if err != nil {
-		return errors.Wrap(err, "listing pods")
-	}
-	// listing nodes
-	log.Debug("listing nodes")
-	nodesList, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return errors.Wrap(err, "listing nodes")
-	}
-	nodes := usage.NodeListToMap(cluster, nodesList)
-	// set end time to now
-	endTime := time.Now()
-	// set begin time to 60 minutes ago
-	beginTime := endTime.Add(-60 * time.Minute)
-	// allocate slice for pod usage records
-	records := make([]*usage.Pod, 0, len(pods.Items))
-	// collect pod info for all pods
-	for _, pod := range pods.Items {
-		record := &usage.Pod{}
-		record.Name = pod.GetName()
-		record.Namespace = pod.GetNamespace()
-		// calculate pod's requested CPU and memory for all containers
-		for _, container := range pod.Spec.Containers {
-			record.Resources.Requests.CPU += container.Resources.Requests.Cpu().MilliValue()
-			record.Resources.Requests.Memory += container.Resources.Requests.Memory().Value()
-			record.Resources.Limits.CPU += container.Resources.Limits.Cpu().MilliValue()
-			record.Resources.Limits.Memory += container.Resources.Limits.Memory().Value()
-		}
-		// copy pod labels, skip ending with "-hash"
-		record.Labels = make(map[string]string)
-		for k, v := range pod.GetLabels() {
-			if !strings.HasSuffix(k, "-hash") {
-				record.Labels[k] = v
-			}
-		}
-		// copy pod QoS class
-		record.QosClass = string(pod.Status.QOSClass)
-		// set pod measured time
-		record.BeginTime = beginTime
-		record.EndTime = endTime
-		// copy pod start time
-		record.StartTime = pod.Status.StartTime.Time
-		// update pod begin time to the earliest pod start time
-		if record.StartTime.Before(beginTime) {
-			record.BeginTime = record.StartTime
-		}
-		// get node by pod's node name
-		node, ok := nodes[pod.Spec.NodeName]
-		if !ok {
-			log.Warnf("node %q not found", pod.Spec.NodeName)
-		} else {
-			record.Node = node
-		}
-		// append to records
-		records = append(records, record)
-	}
-	// send collected records to EKS Lens
-	log.Debug("uploading records")
-	err = uploader.Upload(ctx, records)
-	if err != nil {
-		return errors.Wrap(err, "uploading records")
+		return errors.Wrap(err, "running scanner controller")
 	}
 	return nil
 }
 
-func run(ctx context.Context, cluster string, log *logrus.Entry, cfg config.Config) error {
+func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 	ctx, ctxCancel := context.WithCancel(ctx)
 	defer ctxCancel()
 
@@ -119,7 +63,7 @@ func run(ctx context.Context, cluster string, log *logrus.Entry, cfg config.Conf
 		return errors.Wrap(err, "initializing firehose uploader")
 	}
 
-	err = runController(ctx, cluster, log, clientset, uploader)
+	err = runController(ctx, cfg.ClusterName, log, clientset, uploader)
 	if err != nil {
 		return errors.Wrap(err, "running controller")
 	}
@@ -130,11 +74,15 @@ func run(ctx context.Context, cluster string, log *logrus.Entry, cfg config.Conf
 
 func mainCmd(c *cli.Context) error {
 	ctx := signals.SetupSignalHandler()
-	logger := logrus.New()
-	log := logger.WithField("version", version)
-	cfg := config.Get()
+	cfg := config.LoadConfig(c)
 
-	if err := run(ctx, c.String("cluster-name"), log, cfg); err != nil {
+	logger := logrus.New()
+	log := logger.WithFields(logrus.Fields{
+		"cluster": cfg.ClusterName,
+		"version": version,
+	})
+
+	if err := run(ctx, log, cfg); err != nil {
 		log.Fatalf("eks-lens agent failed: %v", err)
 	}
 
@@ -144,14 +92,23 @@ func mainCmd(c *cli.Context) error {
 func main() {
 	app := &cli.App{
 		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:  "bool",
-				Value: true,
-				Usage: "boolean app flag",
+			&cli.StringFlag{
+				Name:     "custer-name",
+				Usage:    "EKS cluster name",
+				Required: true,
+				EnvVars:  []string{"CLUSTER_NAME"},
 			},
 			&cli.StringFlag{
-				Name:  "custer-name",
-				Usage: "EKS cluster name",
+				Name:     "kubeconfig",
+				Usage:    "Path to kubeconfig file",
+				Required: true,
+				EnvVars:  []string{"KUBECONFIG"},
+			},
+			&cli.StringFlag{
+				Name:     "stream-name",
+				Usage:    "Amazon Kinesis Data Stream name",
+				Required: true,
+				EnvVars:  []string{"STREAM_NAME"},
 			},
 		},
 		Name:    "eks-lens-agent",
@@ -192,7 +149,7 @@ func kubeConfigFromPath(kubepath string) (*rest.Config, error) {
 }
 
 func retrieveKubeConfig(log logrus.FieldLogger, cfg config.Config) (*rest.Config, error) {
-	kubeconfig, err := kubeConfigFromPath(cfg.Kubeconfig)
+	kubeconfig, err := kubeConfigFromPath(cfg.KubeConfigPath)
 	if err != nil && !errors.Is(err, errEmptyPath) {
 		return nil, errors.Wrap(err, "retrieving kube config from path")
 	}
