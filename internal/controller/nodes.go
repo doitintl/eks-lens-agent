@@ -68,7 +68,7 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 	}
 
 	// Process Node add and delete events
-	nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := nodeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			nodeInfo := usage.NodeInfoFromNode(cluster, node)
@@ -87,6 +87,9 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 			delete(n.data, node.Name)
 		},
 	})
+	if err != nil {
+		log.Panicf("Error adding event handler to node informer: %v", err)
+	}
 
 	// Create a channel to signal when the map is loaded
 	loaded := make(chan bool)
