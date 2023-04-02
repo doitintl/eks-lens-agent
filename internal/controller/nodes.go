@@ -16,7 +16,7 @@ import (
 )
 
 type NodesInformer interface {
-	Load(ctx context.Context, cluster string, clientset *kubernetes.Clientset) chan bool
+	Load(ctx context.Context, cluster string, clientset kubernetes.Interface) chan bool
 	GetNode(nodeName string) (*usage.NodeInfo, bool)
 }
 
@@ -39,7 +39,7 @@ func (n *NodesMap) GetNode(nodeName string) (*usage.NodeInfo, bool) {
 }
 
 // Load loads the NodesMap with the current nodes in the cluster return channel to signal when the map is loaded
-func (n *NodesMap) Load(ctx context.Context, cluster string, clientset *kubernetes.Clientset) chan bool {
+func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernetes.Interface) chan bool {
 	// Create a new Node informer
 	nodeInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -64,7 +64,7 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset *kubernet
 
 	// Wait for the Node informer to sync
 	if !cache.WaitForCacheSync(make(chan struct{}), nodeInformer.HasSynced) {
-		log.Fatalf("Error syncing node informer cache")
+		log.Panicf("Error syncing node informer cache")
 	}
 
 	// Process Node add and delete events
