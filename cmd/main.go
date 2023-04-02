@@ -68,6 +68,9 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 		return errors.Wrap(err, "running controller")
 	}
 
+	// wait for context to be cancelled
+	<-ctx.Done()
+
 	log.Infof("eks-lens agent stopped")
 	return nil
 }

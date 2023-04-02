@@ -130,8 +130,5 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 		}
 	}
 
-	// wait for the context to be done
-	<-ctx.Done()
-
 	return nil
 }
