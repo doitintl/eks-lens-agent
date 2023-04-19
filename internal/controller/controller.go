@@ -43,10 +43,10 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				// list running pods only
 				options.FieldSelector = "status.phase=Running"
-				return s.client.CoreV1().Pods("").List(context.Background(), options)
+				return s.client.CoreV1().Pods("").List(context.Background(), options) //nolint:wrapcheck
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return s.client.CoreV1().Pods("").Watch(context.Background(), options)
+				return s.client.CoreV1().Pods("").Watch(context.Background(), options) //nolint:wrapcheck
 			},
 			DisableChunking: true,
 		},
@@ -56,7 +56,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 	)
 
 	// on delete upload PodInfo record with entTime	(now)
-	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
 			pod := obj.(*v1.Pod)
 			log.WithFields(logrus.Fields{
@@ -72,7 +72,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			// convert PodInfo to usage record
 			endTime := time.Now()
 			beginTime := endTime.Add(-60 * time.Minute)
-			record := usage.NewPodInfo(*pod, beginTime, endTime, node)
+			record := usage.NewPodInfo(pod, beginTime, endTime, node)
 			// upload the record to EKS Lens
 			err := s.uploader.UploadOne(ctx, record)
 			if err != nil {
@@ -80,6 +80,9 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			}
 		},
 	})
+	if err != nil {
+		return errors.Wrap(err, "adding pod informer event handler")
+	}
 
 	// start the pod informer
 	stopper := make(chan struct{})
@@ -109,7 +112,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 				if !ok {
 					log.Warnf("getting node %s from cache", pod.Spec.NodeName)
 				}
-				record := usage.NewPodInfo(*pod, beginTime, now, node)
+				record := usage.NewPodInfo(pod, beginTime, now, node)
 				records = append(records, record)
 			}
 			// upload the records to EKS Lens
@@ -129,6 +132,4 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			upload()
 		}
 	}
-
-	return nil
 }

@@ -21,7 +21,7 @@ type NodesInformer interface {
 }
 
 type NodesMap struct {
-	sync.RWMutex
+	mu   sync.RWMutex
 	data map[string]usage.NodeInfo
 }
 
@@ -32,8 +32,8 @@ func NewNodesInformer() NodesInformer {
 }
 
 func (n *NodesMap) GetNode(nodeName string) (*usage.NodeInfo, bool) {
-	n.RLock()
-	defer n.RUnlock()
+	n.mu.RLock()
+	defer n.mu.RUnlock()
 	nodeInfo, ok := n.data[nodeName]
 	return &nodeInfo, ok
 }
@@ -44,10 +44,10 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 	nodeInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (object runtime.Object, err error) {
-				return clientset.CoreV1().Nodes().List(context.Background(), options)
+				return clientset.CoreV1().Nodes().List(context.Background(), options) //nolint:wrapcheck
 			},
 			WatchFunc: func(options metav1.ListOptions) (retWc watch.Interface, err error) {
-				return clientset.CoreV1().Nodes().Watch(context.Background(), options)
+				return clientset.CoreV1().Nodes().Watch(context.Background(), options) //nolint:wrapcheck
 			},
 		},
 		&v1.Node{},
@@ -72,8 +72,8 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 		AddFunc: func(obj interface{}) {
 			node := obj.(*v1.Node)
 			nodeInfo := usage.NodeInfoFromNode(cluster, node)
-			n.Lock()
-			defer n.Unlock()
+			n.mu.Lock()
+			defer n.mu.Unlock()
 			n.data[node.Name] = nodeInfo
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -82,8 +82,8 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 				// The object is of an unexpected type
 				return
 			}
-			n.Lock()
-			defer n.Unlock()
+			n.mu.Lock()
+			defer n.mu.Unlock()
 			delete(n.data, node.Name)
 		},
 	})
@@ -103,8 +103,8 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 
 		// refresh the nodes map and send to the loaded channel (if not already sent)
 		refresh := func() {
-			n.Lock()
-			defer n.Unlock()
+			n.mu.Lock()
+			defer n.mu.Unlock()
 			// Get the latest resource version of the nodes
 			lastSyncResourceVersion := nodeInformer.LastSyncResourceVersion()
 			// if not different from the current resource version of the nodes, skip

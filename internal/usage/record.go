@@ -5,13 +5,15 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type Ask struct {
-	CPU     int64 `json:"cpu,omitempty"`
-	Memory  int64 `json:"memory,omitempty"`
-	Storage int64 `json:"storage,omitempty"`
-	GPU     int64 `json:"gpu,omitempty"`
+	CPU              int64 `json:"cpu,omitempty"`
+	Memory           int64 `json:"memory,omitempty"`
+	Storage          int64 `json:"storage,omitempty"`
+	StorageEphemeral int64 `json:"storageEphemeral,omitempty"`
+	GPU              int64 `json:"gpu,omitempty"`
 }
 
 type Resources struct {
@@ -21,13 +23,17 @@ type Resources struct {
 
 type Capacity struct {
 	// CPU millicores
-	CPU int64 // json:"cpu"
+	CPU int64 `json:"cpu"`
+	// GPU int64 `json:"gpu"`
+	GPU int64 `json:"gpu,omitempty"`
 	// memory Kibibytes
-	Memory int64 // json:"memory"
+	Memory int64 `json:"memory"`
 	// maximum number of Pods (depends on number of ENI
-	Pods int64 // json:"pods"
+	Pods int64 `json:"pods,omitempty"`
+	// local storage in Kibibytes
+	Storage int64 `json:"storage,omitempty"`
 	// ephemeral storage in Kibibytes
-	Storage int64 // json:"storage"
+	StorageEphemeral int64 `json:"storageEphemeral,omitempty"`
 }
 
 type NodeInfo struct {
@@ -101,23 +107,27 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 		KubeletVersion: node.Status.NodeInfo.KubeletVersion,
 		Runtime:        node.Status.NodeInfo.ContainerRuntimeVersion,
 		Allocatable: Capacity{
-			CPU:     node.Status.Allocatable.Cpu().MilliValue(),
-			Memory:  node.Status.Allocatable.Memory().Value(),
-			Pods:    node.Status.Allocatable.Pods().Value(),
-			Storage: node.Status.Allocatable.StorageEphemeral().Value(),
+			GPU:              node.Status.Allocatable.Name("nvidia.com/gpu", resource.DecimalSI).Value(),
+			CPU:              node.Status.Allocatable.Cpu().MilliValue(),
+			Memory:           node.Status.Allocatable.Memory().Value(),
+			Pods:             node.Status.Allocatable.Pods().Value(),
+			Storage:          node.Status.Allocatable.Storage().Value(),
+			StorageEphemeral: node.Status.Allocatable.StorageEphemeral().Value(),
 		},
 		Capacity: Capacity{
-			CPU:     node.Status.Capacity.Cpu().MilliValue(),
-			Memory:  node.Status.Capacity.Memory().Value(),
-			Pods:    node.Status.Capacity.Pods().Value(),
-			Storage: node.Status.Capacity.StorageEphemeral().Value(),
+			GPU:              node.Status.Capacity.Name("nvidia.com/gpu", resource.DecimalSI).Value(),
+			CPU:              node.Status.Capacity.Cpu().MilliValue(),
+			Memory:           node.Status.Capacity.Memory().Value(),
+			Pods:             node.Status.Capacity.Pods().Value(),
+			Storage:          node.Status.Capacity.Storage().Value(),
+			StorageEphemeral: node.Status.Capacity.StorageEphemeral().Value(),
 		},
 		Created: node.GetCreationTimestamp().Time,
 	}
 	return result
 }
 
-func NewPodInfo(pod v1.Pod, beginTime time.Time, endTime time.Time, node *NodeInfo) *PodInfo {
+func NewPodInfo(pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodInfo {
 	record := &PodInfo{}
 	record.Name = pod.GetName()
 	record.Namespace = pod.GetNamespace()

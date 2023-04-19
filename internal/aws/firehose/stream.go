@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const maxBatchSize = 500
+
 type Uploader interface {
 	Upload(ctx context.Context, records []*usage.PodInfo) error
 	UploadOne(ctx context.Context, record *usage.PodInfo) error
@@ -40,8 +42,8 @@ func NewUploader(ctx context.Context, streamName string) (Uploader, error) {
 // https://docs.aws.amazon.com/firehose/latest/APIReference/API_PutRecordBatch.html
 func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo) error {
 	// send records to Amazon Kinesis Data Firehose by batches of 500 records
-	for i := 0; i < len(records); i += 500 {
-		j := i + 500
+	for i := 0; i < len(records); i += maxBatchSize {
+		j := i + maxBatchSize
 		if j > len(records) {
 			j = len(records)
 		}
