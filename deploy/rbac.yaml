@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eks-lens
+  labels:
+    app: eks-lens
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eks-lens-agent
+  namespace: eks-lens
+  labels:
+    app: eks-lens
+    component: eks-lens-agent
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eks-lens-agent
+  labels:
+    app: eks-lens
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eks-lens-agent
+  labels:
+    app: eks-lens
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eks-lens-agent
+subjects:
+  - kind: ServiceAccount
+    name: eks-lens-agent
+    namespace: eks-lens

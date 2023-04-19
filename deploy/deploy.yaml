@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eks-lens-agent
+  namespace: eks-lens
+spec:
+  selector:
+    matchLabels:
+      app: eks-lens
+      component: eks-lens-agent
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: eks-lens
+        component: eks-lens-agent
+    spec:
+      serviceAccountName: eks-lens-agent
+      containers:
+        - name: eks-lens-agent
+          image: ghcr.io/doitintl/eks-lens-agent:latest
+          env:
+            - name: CLUSTER_NAME
+              value: <cluster-name>
+            - name: FIREHOSE_STREAM_NAME
+              value: <stream-name>
+          imagePullPolicy: Always
+      restartPolicy: Always

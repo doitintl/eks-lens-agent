@@ -1,91 +1,89 @@
+# Go parameters
+GO  = go
+BIN = $(CURDIR)/.bin
+LINT_CONFIG = $(CURDIR)/.golangci.yaml
+LDFLAGS_VERSION := -X main.version=$(VERSION) -X main.gitCommit=$(COMMIT) -X main.gitBranch=$(BRANCH) -X \"main.buildDate=$(DATE)\"
+
 MODULE   = $(shell $(GO) list -m)
 DATE    ?= $(shell date +%FT%T%z)
 VERSION ?= $(shell git describe --tags --always --dirty --match="v*" 2> /dev/null || \
 			cat $(CURDIR)/.version 2> /dev/null || echo v0)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BRANCH  ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-PKGS     = $(shell $(GO) list ./...)
-TESTPKGS = $(shell $(GO) list -f \
-			'{{ if or .TestGoFiles .XTestGoFiles }}{{ .ImportPath }}{{ end }}' \
-			$(PKGS))
-LINT_CONFIG = $(CURDIR)/.golangci.yaml
-BIN      = $(CURDIR)/.bin
-TARGETOS   ?= $(GOOS)
-TARGETARCH ?= $(GOARCH)
 
-GO      = go
+
+# platforms and architectures for release; default to MacOS (darwin) and arm64 (M1/M2)
+TARGETOS   := $(or $(TARGETOS), darwin)
+TARGETARCH := $(or $(TARGETARCH), arm64)
+PLATFORMS     = darwin linux windows
+ARCHITECTURES = amd64 arm64
+
 TIMEOUT = 15
 V = 0
 Q = $(if $(filter 1,$V),,@)
 M = $(shell printf "\033[34;1m▶\033[0m")
 
-export GO111MODULE=on
 export CGO_ENABLED=0
 export GOPROXY=https://proxy.golang.org
+export GOOS=$(TARGETOS)
+export GOARCH=$(TARGETARCH)
 
 .PHONY: all
-all: fmt lint test ; $(info $(M) building $(TARGETOS)/$(TARGETARCH) binary...) @ ## Build program binary
+all: fmt lint test build
+
+.PHONY: dependency
+dependency: ; $(info $(M) downloading dependencies...) @ ## Build program binary
+	$Q $(GO) mod download
+
+.PHONY: build
+build: dependency | ; $(info $(M) building $(GOOS)/$(GOARCH) binary...) @ ## Build program binary
 	$Q env GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) $(GO) build \
 		-tags release \
-		-ldflags '-X main.version=$(VERSION) -X main.buildDate=$(DATE) -X main.gitCommit=$(COMMIT) -X main.gitBranch=$(BRANCH)' \
+		-ldflags "$(LDFLAGS_VERSION)" \
 		-o $(BIN)/$(basename $(MODULE)) ./cmd/main.go
+
+.PHONY: release
+release: clean ; $(info $(M) building binaries for multiple os/arch...) @ ## Build program binary for paltforms and os
+	$(foreach GOOS, $(PLATFORMS),\
+		$(foreach GOARCH, $(ARCHITECTURES), \
+			$(shell \
+				GOPROXY=$(GOPROXY) CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) GOARCH=$(GOARCH) \
+				$(GO) build \
+				-tags release \
+				-ldflags "$(LDFLAGS_VERSION)" \
+				-o $(BIN)/$(basename $(MODULE))_$(GOOS)_$(GOARCH) ./cmd/main.go || true)))
 
 # Tools
 
-setup-tools: setup-lint setup-gocov setup-gocov-xml setup-go2xunit setup-mockery
+setup-tools: setup-lint setup-gomock
 
 setup-lint:
 	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
-setup-gocov:
-	$(GO) install github.com/axw/gocov/...
-setup-gocov-xml:
-	$(GO) install github.com/AlekSi/gocov-xml
-setup-go2xunit:
-	$(GO) install github.com/tebeka/go2xunit
 setup-gomock:
 	$(GO) install github.com/golang/mock/mockgen@v1.6.0
 
 GOLINT=golangci-lint
-GOCOV=gocov
-GOCOVXML=gocov-xml
-GO2XUNIT=go2xunit
 GOMOCK=gomock
 
 # Tests
 
-TEST_TARGETS := test-default test-bench test-short test-verbose test-race
-.PHONY: $(TEST_TARGETS) test-xml check test tests
-test-bench:   ARGS=-run=__absolutelynothing__ -bench=. ## Run benchmarks
-test-short:   ARGS=-short        ## Run only short tests
-test-verbose: ARGS=-v            ## Run tests in verbose mode with coverage reporting
-test-race:    ARGS=-race         ## Run tests with race detector
-$(TEST_TARGETS): NAME=$(MAKECMDGOALS:test-%=%)
-$(TEST_TARGETS): test
-check test tests: fmt ; $(info $(M) running $(NAME:%=% )tests...) @ ## Run tests
-	$Q $(GO) test -timeout $(TIMEOUT)s $(ARGS) $(TESTPKGS)
+.PHONY: test
+test: ; $(info $(M) running test ...) @ ## run tests with coverage
+	$Q $(GO) test -v -cover ./... -coverprofile=coverage.out
+	$Q $(GO) tool cover -func=coverage.out
 
-test-xml: fmt | setup-go2xunit ; $(info $(M) running xUnit tests...) @ ## Run tests with xUnit output
-	$Q mkdir -p test
-	$Q 2>&1 $(GO) test -timeout $(TIMEOUT)s -v $(TESTPKGS) | tee test/tests.output
-	$(GO2XUNIT) -fail -input test/tests.output -output test/tests.xml
+.PHONY: test-json
+test-json: ; $(info $(M) running test output JSON ...) @ ## run tests with JSON report and coverage
+	$Q $(GO) test -v -cover ./... -coverprofile=coverage.out -json > test-report.out
+	$Q $(GO) tool cover -func=coverage.out
 
-COVERAGE_MODE    = atomic
-COVERAGE_PROFILE = $(COVERAGE_DIR)/profile.out
-COVERAGE_XML     = $(COVERAGE_DIR)/coverage.xml
-COVERAGE_HTML    = $(COVERAGE_DIR)/index.html
-.PHONY: test-coverage test-coverage-tools
-test-coverage-tools: | setup-gocov setup-gocov-xml
-test-coverage: COVERAGE_DIR := $(CURDIR)/test/coverage.$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-test-coverage: fmt test-coverage-tools ; $(info $(M) running coverage tests...) @ ## Run coverage tests
-	$Q mkdir -p $(COVERAGE_DIR)
-	$Q $(GO) test \
-		-coverpkg=$$($(GO) list -f '{{ join .Deps "\n" }}' $(TESTPKGS) | \
-					grep '^$(MODULE)/' | \
-					tr '\n' ',' | sed 's/,$$//') \
-		-covermode=$(COVERAGE_MODE) \
-		-coverprofile="$(COVERAGE_PROFILE)" $(TESTPKGS)
-	$Q $(GO) tool cover -html=$(COVERAGE_PROFILE) -o $(COVERAGE_HTML)
-	$Q $(GOCOV) convert $(COVERAGE_PROFILE) | $(GOCOVXML) > $(COVERAGE_XML)
+.PHONY: test-view
+test-view: ; $(info $(M) generating coverage report ...) @ ## generate HTML coverage report
+	$(GO) tool cover -html=coverage.out
+
+.PHONY: fmt
+fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
+	$Q $(GO) fmt ./...
 
 .PHONY: lint
 lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
@@ -95,10 +93,6 @@ lint: setup-lint; $(info $(M) running golangci-lint...) @ ## Run golangci-lint
 .PHONY: mockgen
 mockgen: setup-gomock ; $(info $(M) generating mocks...) @ ## Run mockery
 	$Q $(GO) generate ./...
-
-.PHONY: fmt
-fmt: ; $(info $(M) running gofmt...) @ ## Run gofmt on all source files
-	$Q $(GO) fmt $(PKGS)
 
 # Misc
 
