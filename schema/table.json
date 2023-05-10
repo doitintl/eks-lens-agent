@@ -1,0 +1,19 @@
+{
+  "Name": "events",
+  "Description": "eks-lens",
+  "TableType": "EXTERNAL_TABLE",
+  "PartitionKeys": [],
+  "Parameters": {
+    "classification": "parquet"
+  },
+  "StorageDescriptor": {
+    "Location": "s3://eks-lens/events",
+    "SchemaReference": {
+      "SchemaId": {
+        "RegistryName": "default-registry",
+        "SchemaName": "eks-lens"
+      },
+      "SchemaVersionNumber": 1
+    }
+  }
+}

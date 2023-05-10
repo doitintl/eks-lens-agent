@@ -1,0 +1,42 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "FirehoseAccess",
+            "Effect": "Allow",
+            "Action": [
+                "firehose:DeleteDeliveryStream",
+                "firehose:PutRecord",
+                "firehose:PutRecordBatch",
+                "firehose:UpdateDestination"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "GlueAccess",
+            "Effect": "Allow",
+             "Action": [
+                "glue:GetTable",
+                "glue:GetTableVersion",
+                "glue:GetTableVersions"
+            ],
+            "Resource": "arn:aws:glue:us-west-2:906364353610:table/eks-lens/events"
+        },
+        {
+            "Sid": "S3Access",
+            "Effect": "Allow",      
+            "Action": [
+                "s3:AbortMultipartUpload",
+                "s3:GetBucketLocation",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:ListBucketMultipartUploads",
+                "s3:PutObject"
+            ],      
+            "Resource": [
+                "arn:aws:s3:::eks-lens",
+                "arn:aws:s3:::eks-lens/*"    
+            ]
+        }
+    ]
+} 

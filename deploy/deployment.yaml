@@ -21,8 +21,8 @@ spec:
           image: ghcr.io/doitintl/eks-lens-agent:latest
           env:
             - name: CLUSTER_NAME
-              value: <cluster-name>
+              value: gaia-cost
             - name: FIREHOSE_STREAM_NAME
-              value: <stream-name>
+              value: eks-lens
           imagePullPolicy: Always
       restartPolicy: Always

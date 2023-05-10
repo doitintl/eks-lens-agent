@@ -1,0 +1,225 @@
+{
+  "type": "record",
+  "name": "PodInfo",
+  "namespace": "com.example",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    },
+    {
+      "name": "namespace",
+      "type": "string"
+    },
+    {
+      "name": "labels",
+      "type": {
+        "type": "map",
+        "values": "string"
+      }
+    },
+    {
+      "name": "node",
+      "type": {
+        "type": "record",
+        "name": "Node",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "cluster",
+            "type": "string"
+          },
+          {
+            "name": "nodegroup",
+            "type": "string"
+          },
+          {
+            "name": "type",
+            "type": "string"
+          },
+          {
+            "name": "computeType",
+            "type": "string"
+          },
+          {
+            "name": "capacityType",
+            "type": "string"
+          },
+          {
+            "name": "region",
+            "type": "string"
+          },
+          {
+            "name": "zone",
+            "type": "string"
+          },
+          {
+            "name": "arch",
+            "type": "string"
+          },
+          {
+            "name": "os",
+            "type": "string"
+          },
+          {
+            "name": "osImage",
+            "type": "string"
+          },
+          {
+            "name": "kernel",
+            "type": "string"
+          },
+          {
+            "name": "kubelet",
+            "type": "string"
+          },
+          {
+            "name": "runtime",
+            "type": "string"
+          },
+          {
+            "name": "allocatable",
+            "type": {
+              "type": "record",
+              "name": "Allocatable",
+              "fields": [
+                {
+                  "name": "cpu",
+                  "type": "int"
+                },
+                {
+                  "name": "gpu",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                },
+                {
+                  "name": "memory",
+                  "type": "int"
+                },
+                {
+                  "name": "pods",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                },
+                {
+                  "name": "storage",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                },
+                {
+                  "name": "storageEphemeral",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                }
+              ]
+            }
+          },
+          {
+            "name": "capacity",
+            "type": {
+              "type": "record",
+              "name": "Capacity",
+              "fields": [
+                {
+                  "name": "cpu",
+                  "type": "int"
+                },
+                {
+                  "name": "gpu",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                },
+                {
+                  "name": "memory",
+                  "type": "int"
+                },
+                {
+                  "name": "pods",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                },
+                {
+                  "name": "storage",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                },
+                {
+                  "name": "storageEphemeral",
+                  "type": [
+                    "null",
+                    "int"
+                  ],
+                  "default": null
+                }
+              ]
+            }
+          },
+          {
+            "name": "created",
+            "type": {
+              "type": "string",
+              "logicalType": "timestamp-millis"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "qosClass",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "startTime",
+      "type": {
+        "type": "string",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "beginTime",
+      "type": {
+        "type": "string",
+        "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "endTime",
+      "type": {
+        "type": "string",
+        "logicalType": "timestamp-millis"
+      }
+    }
+  ]
+}
