@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/go/mod go mod download
 COPY . .
 
 # build
-RUN TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH} make
+RUN make TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}
 
 #
 # ------ release Docker image ------
