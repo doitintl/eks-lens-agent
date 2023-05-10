@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/go/mod go mod download
 COPY . .
 
 # build
-RUN make TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}
+RUN make build TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}
 
 #
 # ------ release Docker image ------
@@ -49,7 +49,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /etc/passwd.min /etc/passwd
 
 # this is the last command since it's never cached
-COPY --from=build /go/src/app/.bin/eks-lens-agent /eks-lens-agent
+COPY --from=build /go/src/app/.bin/github.com/doitintl/eks-lens-agent /eks-lens-agent
 
 # set user nobody
 USER nobody
