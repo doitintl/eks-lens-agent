@@ -102,10 +102,9 @@ func main() {
 				EnvVars:  []string{"CLUSTER_NAME"},
 			},
 			&cli.StringFlag{
-				Name:     "kubeconfig",
-				Usage:    "Path to kubeconfig file",
-				Required: true,
-				EnvVars:  []string{"KUBECONFIG"},
+				Name:    "kubeconfig",
+				Usage:   "Path to kubeconfig file",
+				EnvVars: []string{"KUBECONFIG"},
 			},
 			&cli.StringFlag{
 				Name:     "stream-name",

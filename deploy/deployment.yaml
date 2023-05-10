@@ -22,7 +22,7 @@ spec:
           env:
             - name: CLUSTER_NAME
               value: gaia-cost
-            - name: FIREHOSE_STREAM_NAME
+            - name: STREAM_NAME
               value: eks-lens
           imagePullPolicy: Always
       restartPolicy: Always
