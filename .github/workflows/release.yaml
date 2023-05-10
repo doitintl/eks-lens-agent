@@ -1,4 +1,4 @@
-name: github
+name: release
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
       - '*.md'
 
 jobs:
-  release:
+  github:
     runs-on: ubuntu-latest
 
     steps:
