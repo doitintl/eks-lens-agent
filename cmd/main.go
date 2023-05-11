@@ -75,15 +75,46 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 	return nil
 }
 
-func mainCmd(c *cli.Context) error {
-	ctx := signals.SetupSignalHandler()
-	cfg := config.LoadConfig(c)
-
+func prepareLogler(cfg config.Config, c *cli.Context) *logrus.Entry {
 	logger := logrus.New()
+
+	// set debug log level
+	switch level := c.String("log-level"); level {
+	case "debug", "DEBUG":
+		logger.SetLevel(logrus.DebugLevel)
+	case "info", "INFO":
+		logger.SetLevel(logrus.InfoLevel)
+	case "warning", "WARNING":
+		logger.SetLevel(logrus.WarnLevel)
+	case "error", "ERROR":
+		logger.SetLevel(logrus.ErrorLevel)
+	case "fatal", "FATAL":
+		logger.SetLevel(logrus.FatalLevel)
+	case "panic", "PANIC":
+		logger.SetLevel(logrus.PanicLevel)
+	default:
+		logger.SetLevel(logrus.WarnLevel)
+	}
+
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+	if c.Bool("json") {
+		logger.SetFormatter(&logrus.JSONFormatter{})
+	}
+
 	log := logger.WithFields(logrus.Fields{
 		"cluster": cfg.ClusterName,
 		"version": version,
 	})
+
+	return log
+}
+
+func runCmd(c *cli.Context) error {
+	ctx := signals.SetupSignalHandler()
+	cfg := config.LoadConfig(c)
+	log := prepareLogler(cfg, c)
 
 	if err := run(ctx, log, cfg); err != nil {
 		log.Fatalf("eks-lens agent failed: %v", err)
@@ -94,28 +125,50 @@ func mainCmd(c *cli.Context) error {
 
 func main() {
 	app := &cli.App{
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:     "custer-name",
-				Usage:    "EKS cluster name",
-				Required: true,
-				EnvVars:  []string{"CLUSTER_NAME"},
-			},
-			&cli.StringFlag{
-				Name:    "kubeconfig",
-				Usage:   "Path to kubeconfig file",
-				EnvVars: []string{"KUBECONFIG"},
-			},
-			&cli.StringFlag{
-				Name:     "stream-name",
-				Usage:    "Amazon Kinesis Data Stream name",
-				Required: true,
-				EnvVars:  []string{"STREAM_NAME"},
+		Commands: []*cli.Command{
+			{
+				Name:  "run",
+				Usage: "run eks-lens agent",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:     "cluster-name",
+						Usage:    "EKS cluster name",
+						Required: true,
+						EnvVars:  []string{"CLUSTER_NAME"},
+						Category: "Configuration",
+					},
+					&cli.StringFlag{
+						Name:     "kubeconfig",
+						Usage:    "Path to kubeconfig file",
+						EnvVars:  []string{"KUBECONFIG"},
+						Category: "Configuration",
+					},
+					&cli.StringFlag{
+						Name:     "stream-name",
+						Usage:    "Amazon Kinesis Data Stream name",
+						Required: true,
+						EnvVars:  []string{"STREAM_NAME"},
+						Category: "Configuration",
+					},
+					&cli.StringFlag{
+						Name:     "log-level",
+						Usage:    "set log level (debug, info, warning(*), error, fatal, panic)",
+						Value:    "warning",
+						EnvVars:  []string{"LOG_LEVEL"},
+						Category: "Logging",
+					},
+					&cli.BoolFlag{
+						Name:     "json",
+						Usage:    "produce log in JSON format: Logstash and Splunk friendly",
+						EnvVars:  []string{"LOG_JSON"},
+						Category: "Logging",
+					},
+				},
+				Action: runCmd,
 			},
 		},
 		Name:    "eks-lens-agent",
 		Usage:   "eks-lens-agent is a data collection agent for EKS Lens",
-		Action:  mainCmd,
 		Version: version,
 	}
 	cli.VersionPrinter = func(c *cli.Context) {

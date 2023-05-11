@@ -19,10 +19,14 @@ spec:
       containers:
         - name: eks-lens-agent
           image: ghcr.io/doitintl/eks-lens-agent:latest
+          args:
+            - run
           env:
             - name: CLUSTER_NAME
               value: gaia-cost
             - name: STREAM_NAME
               value: eks-lens
+            - name: LOG_LEVEL
+              value: debug
           imagePullPolicy: Always
       restartPolicy: Always

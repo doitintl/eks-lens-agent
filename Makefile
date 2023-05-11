@@ -2,15 +2,15 @@
 GO  = go
 BIN = $(CURDIR)/.bin
 LINT_CONFIG = $(CURDIR)/.golangci.yaml
-LDFLAGS_VERSION := -X main.version=$(VERSION) -X main.gitCommit=$(COMMIT) -X main.gitBranch=$(BRANCH) -X \"main.buildDate=$(DATE)\"
 
 MODULE   = $(shell $(GO) list -m)
 DATE    ?= $(shell date +%FT%T%z)
-VERSION ?= $(shell git describe --tags --always --dirty --match="v*" 2> /dev/null || \
+VERSION ?= $(shell git describe --tags --always --dirty --match="[0-9]*.[0-9]*.[0-9]*" 2> /dev/null || \
 			cat $(CURDIR)/.version 2> /dev/null || echo v0)
 COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BRANCH  ?= $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 
+LDFLAGS_VERSION := -X main.version=$(VERSION) -X main.gitCommit=$(COMMIT) -X main.gitBranch=$(BRANCH) -X \"main.buildDate=$(DATE)\"
 
 # platforms and architectures for release; default to MacOS (darwin) and arm64 (M1/M2)
 TARGETOS   := $(or $(TARGETOS), darwin)
