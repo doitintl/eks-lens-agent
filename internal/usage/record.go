@@ -117,7 +117,7 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 			// get memory in rounded GB
 			memory := float64(node.Status.Capacity.Memory().Value())
 			memoryGB := math.Round(memory / 1024 / 1024 / 1024)
-			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), memoryGB)
+			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), int(memoryGB))
 		}
 	}
 
