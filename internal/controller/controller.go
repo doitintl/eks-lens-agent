@@ -74,6 +74,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			beginTime := endTime.Add(-60 * time.Minute)
 			record := usage.NewPodInfo(pod, beginTime, endTime, node)
 			// upload the record to EKS Lens
+			log.WithField("pod", record.Name).Debug("uploading one pod record to EKS Lens")
 			err := s.uploader.UploadOne(ctx, record)
 			if err != nil {
 				log.WithError(err).Error("uploading pod")
@@ -116,7 +117,8 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 				records = append(records, record)
 			}
 			// upload the records to EKS Lens
-			err := s.uploader.Upload(ctx, records)
+			log.WithField("count", len(records)).Debug("uploading pod records to EKS Lens")
+			err = s.uploader.Upload(ctx, records)
 			if err != nil {
 				log.WithError(err).Error("uploading pods to EKS Lens")
 			}
