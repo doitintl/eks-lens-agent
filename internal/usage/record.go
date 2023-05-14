@@ -1,6 +1,7 @@
 package usage
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -90,16 +91,38 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 		id = id[strings.LastIndex(id, "/")+1:]
 	}
 
+	// get nodegroup from node label, fargate nodegroup is empty
+	nodegroup := node.GetLabels()["eks.amazonaws.com/nodegroup"]
+	if nodegroup == "" {
+		nodegroup = "fargate"
+	}
+
+	// get region from node label
+	region := node.GetLabels()["topology.kubernetes.io/region"]
+
+	// get zone from node label
+	zone := node.GetLabels()["topology.kubernetes.io/zone"]
+
+	// get instance type from node label
+	instanceType := node.GetLabels()["beta.kubernetes.io/instance-type"]
+	if instanceType == "" {
+		instanceType = node.GetLabels()["node.kubernetes.io/instance-type"]
+		// if empty, assume fargate and build instance type based on pattern "fargate-vCPU-memoryGB" where memory is rounded to GiB
+		if instanceType == "" {
+			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), node.Status.Capacity.Memory().ScaledValue(resource.Giga))
+		}
+	}
+
 	result := NodeInfo{
 		ID:             id,
 		Name:           node.GetName(),
 		Cluster:        cluster,
-		Nodegroup:      node.GetLabels()["eks.amazonaws.com/nodegroup"],
-		InstanceType:   node.GetLabels()["node.kubernetes.io/instance-type"],
+		Nodegroup:      nodegroup,
+		InstanceType:   instanceType,
 		ComputeType:    computeType,
 		CapacityType:   capacityType,
-		Region:         node.GetLabels()["topology.kubernetes.io/region"],
-		Zone:           node.GetLabels()["topology.kubernetes.io/zone"],
+		Region:         region,
+		Zone:           zone,
 		Arch:           node.Status.NodeInfo.Architecture,
 		OS:             node.Status.NodeInfo.OperatingSystem,
 		OSImage:        node.Status.NodeInfo.OSImage,

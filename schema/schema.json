@@ -1,7 +1,6 @@
 {
   "type": "record",
   "name": "PodInfo",
-  "namespace": "com.example",
   "fields": [
     {
       "name": "name",
@@ -96,39 +95,27 @@
                 },
                 {
                   "name": "gpu",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "int",
+                  "default": 0
                 },
                 {
                   "name": "memory",
-                  "type": "int"
+                  "type": "long"
                 },
                 {
                   "name": "pods",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "int",
+                  "default": 0
                 },
                 {
                   "name": "storage",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "long",
+                  "default": 0
                 },
                 {
                   "name": "storageEphemeral",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "long",
+                  "default": 0
                 }
               ]
             }
@@ -145,39 +132,27 @@
                 },
                 {
                   "name": "gpu",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "int",
+                  "default": 0
                 },
                 {
                   "name": "memory",
-                  "type": "int"
+                  "type": "long"
                 },
                 {
                   "name": "pods",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "int",
+                  "default": 0
                 },
                 {
                   "name": "storage",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "long",
+                  "default": 0
                 },
                 {
                   "name": "storageEphemeral",
-                  "type": [
-                    "null",
-                    "int"
-                  ],
-                  "default": null
+                  "type": "long",
+                  "default": 0
                 }
               ]
             }
@@ -194,11 +169,8 @@
     },
     {
       "name": "qosClass",
-      "type": [
-        "null",
-        "string"
-      ],
-      "default": null
+      "type": "string",
+      "default": "BestEffort"
     },
     {
       "name": "startTime",
@@ -219,6 +191,83 @@
       "type": {
         "type": "string",
         "logicalType": "timestamp-millis"
+      }
+    },
+    {
+      "name": "resources",
+      "type": {
+        "type": "record",
+        "name": "Resources",
+        "fields": [
+          {
+            "name": "limits",
+            "type": {
+              "type": "record",
+              "name": "Limits",
+              "fields": [
+                {
+                  "name": "cpu",
+                  "type": "int",
+                  "default": 0
+                },
+                {
+                  "name": "gpu",
+                  "type": "int",
+                  "default": 0
+                },
+                {
+                  "name": "memory",
+                  "type": "long",
+                  "default": 0
+                },
+                {
+                  "name": "storage",
+                  "type": "long",
+                  "default": 0
+                },
+                {
+                  "name": "storageEphemeral",
+                  "type": "long",
+                  "default": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "requests",
+            "type": {
+              "type": "record",
+              "name": "Requests",
+              "fields": [
+                {
+                  "name": "cpu",
+                  "type": "int",
+                  "default": 0
+                },
+                {
+                  "name": "gpu",
+                  "type": "int",
+                  "default": 0
+                },
+                {
+                  "name": "memory",
+                  "type": "long",
+                  "default": 0
+                },
+                {
+                  "name": "storage",
+                  "type": "long",
+                  "default": 0
+                },
+                {
+                  "name": "storageEphemeral",
+                  "type": "long",
+                  "default": 0
+                }
+              ]
+            }
+          }
+        ]
       }
     }
   ]

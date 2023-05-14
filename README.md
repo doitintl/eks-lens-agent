@@ -58,7 +58,6 @@ Create Amazon Glue schema for storing events:
     --data-format 'AVRO' \
     --compatibility 'BACKWARD' \
     --schema-definition 'file://./schema/schema.json'
- 
 ```
 
 Create Amazon Glue table for storing events:
@@ -145,12 +144,15 @@ cat <<EOF > schema/iam-role-policy.json
              "Action": [
                 "glue:GetTable",
                 "glue:GetTableVersion",
-                "glue:GetTableVersions"
+                "glue:GetTableVersions",
+                "glue:GetSchema",
+				"glue:GetSchemaVersion"
             ],
             "Resource": [
               "arn:aws:glue:$AWS_REGION:$AWS_ACCOUNT:database/eks-lens",
               "arn:aws:glue:$AWS_REGION:$AWS_ACCOUNT:catalog",
-              "arn:aws:glue:$AWS_REGION:$AWS_ACCOUNT:table/eks-lens/events"
+              "arn:aws:glue:$AWS_REGION:$AWS_ACCOUNT:table/eks-lens/events",
+              "arn:aws:glue:$AWS_REGION:$AWS_ACCOUNT:schema/default-registry/eks-lens"
             ]
         },
         {
