@@ -2,6 +2,7 @@ package usage
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -94,7 +95,11 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 	// get nodegroup from node label, fargate nodegroup is empty
 	nodegroup := node.GetLabels()["eks.amazonaws.com/nodegroup"]
 	if nodegroup == "" {
-		nodegroup = "fargate"
+		// assume fargate and get fargate profile name from node label
+		nodegroup = node.GetLabels()["eks.amazonaws.com/fargate-profile"]
+		if nodegroup == "" {
+			nodegroup = "fargate"
+		}
 	}
 
 	// get region from node label
@@ -109,7 +114,10 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 		instanceType = node.GetLabels()["node.kubernetes.io/instance-type"]
 		// if empty, assume fargate and build instance type based on pattern "fargate-vCPU-memoryGB" where memory is rounded to GiB
 		if instanceType == "" {
-			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), node.Status.Capacity.Memory().ScaledValue(resource.Giga))
+			// get memory in rounded GB
+			memory := float64(node.Status.Capacity.Memory().Value())
+			memoryGB := math.Round(memory / 1024 / 1024 / 1024)
+			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), memoryGB)
 		}
 	}
 
