@@ -116,7 +116,7 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 		if instanceType == "" {
 			// get memory in rounded GB
 			memory := float64(node.Status.Capacity.Memory().Value())
-			memoryGB := math.Round(memory / 1024 / 1024 / 1024)
+			memoryGB := math.Round(memory / 1024 / 1024 / 1024) //nolint:gomnd
 			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), int(memoryGB))
 		}
 	}
