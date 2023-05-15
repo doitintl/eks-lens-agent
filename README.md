@@ -87,7 +87,11 @@ aws firehose create-delivery-stream \
         Prefix=events/, \
         ErrorOutputPrefix=errors/, \
         S3BackupMode=Disabled, \
-        CloudWatchLoggingOptions={Enabled=false}, \
+        CloudWatchLoggingOptions={ \
+          Enabled=true, \
+          LogGroupName=/aws/kinesisfirehose/eks-lens, \
+          LogStreamName=DeliveryStream \
+        }, \
         ProcessingConfiguration={Enabled=false}, \
         DataFormatConversionConfiguration={ \
             Enabled=true, \
@@ -108,7 +112,7 @@ aws firehose create-delivery-stream \
                 DatabaseName=eks-lens, \
                 TableName=events, \
                 Region=$AWS_REGION, \
-                VersionId=0 \
+                VersionId=LATEST \
             } \
         }" \
     --region $AWS_REGION
