@@ -280,7 +280,7 @@
             "name": "limits",
             "type": {
               "type": "record",
-              "name": "Limits",
+              "name": "AllocationLimits",
               "fields": [
                 {
                   "name": "cpu",
@@ -312,7 +312,7 @@
             "name": "requests",
             "type": {
               "type": "record",
-              "name": "Requests",
+              "name": "AllocationRequests",
               "fields": [
                 {
                   "name": "cpu",
