@@ -269,6 +269,79 @@
           }
         ]
       }
+    },
+    {
+      "name": "allocations",
+      "type": {
+        "type": "record",
+        "name": "Allocations",
+        "fields": [
+          {
+            "name": "limits",
+            "type": {
+              "type": "record",
+              "name": "Limits",
+              "fields": [
+                {
+                  "name": "cpu",
+                  "type": "double"
+                },
+                {
+                  "name": "gpu",
+                  "type": "double",
+                  "default": 0
+                },
+                {
+                  "name": "memory",
+                  "type": "double"
+                },
+                {
+                  "name": "storage",
+                  "type": "double",
+                  "default": 0
+                },
+                {
+                  "name": "storageEphemeral",
+                  "type": "double",
+                  "default": 0
+                }
+              ]
+            }
+          },
+          {
+            "name": "requests",
+            "type": {
+              "type": "record",
+              "name": "Requests",
+              "fields": [
+                {
+                  "name": "cpu",
+                  "type": "double"
+                },
+                {
+                  "name": "gpu",
+                  "type": "double",
+                  "default": 0
+                },
+                {
+                  "name": "memory",
+                  "type": "double"
+                },
+                {
+                  "name": "storage",
+                  "type": "double",
+                  "default": 0
+                },
+                {
+                  "name": "storageEphemeral",
+                  "type": "double",
+                  "default": 0
+                }
+              ]
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -10,6 +10,24 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+type Allocation struct {
+	// CPU fraction of total CPU
+	CPU float64 `json:"cpu"`
+	// GPU fraction of total GPU
+	GPU float64 `json:"gpu,omitempty"`
+	// memory fraction of total memory
+	Memory float64 `json:"memory"`
+	// storage fraction of total storage
+	Storage float64 `json:"storage,omitempty"`
+	// ephemeral storage fraction of total ephemeral storage
+	StorageEphemeral float64 `json:"storageEphemeral,omitempty"`
+}
+
+type Allocations struct {
+	Requests Allocation `json:"requests"`
+	Limits   Allocation `json:"limits"`
+}
+
 type Ask struct {
 	CPU              int64 `json:"cpu,omitempty"`
 	Memory           int64 `json:"memory,omitempty"`
@@ -62,15 +80,16 @@ type NodeInfo struct {
 }
 
 type PodInfo struct {
-	Name      string            `json:"name"`
-	Namespace string            `json:"namespace"`
-	Labels    map[string]string `json:"labels,omitempty"`
-	Node      NodeInfo          `json:"node"`
-	QosClass  string            `json:"qosClass"`
-	StartTime time.Time         `json:"startTime"`
-	BeginTime time.Time         `json:"beginTime"`
-	EndTime   time.Time         `json:"endTime"`
-	Resources Resources         `json:"resources,omitempty"`
+	Name        string            `json:"name"`
+	Namespace   string            `json:"namespace"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Node        NodeInfo          `json:"node"`
+	QosClass    string            `json:"qosClass"`
+	StartTime   time.Time         `json:"startTime"`
+	BeginTime   time.Time         `json:"beginTime"`
+	EndTime     time.Time         `json:"endTime"`
+	Resources   Resources         `json:"resources,omitempty"`
+	Allocations Allocations       `json:"allocations,omitempty"`
 }
 
 func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
@@ -166,8 +185,15 @@ func NewPodInfo(pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodI
 	for _, container := range pod.Spec.Containers {
 		record.Resources.Requests.CPU += container.Resources.Requests.Cpu().MilliValue()
 		record.Resources.Requests.Memory += container.Resources.Requests.Memory().Value()
+		record.Resources.Requests.GPU += container.Resources.Requests.Name("nvidia.com/gpu", resource.DecimalSI).Value()
+		record.Resources.Requests.Storage += container.Resources.Requests.Storage().Value()
+		record.Resources.Requests.StorageEphemeral += container.Resources.Requests.StorageEphemeral().Value()
+
 		record.Resources.Limits.CPU += container.Resources.Limits.Cpu().MilliValue()
 		record.Resources.Limits.Memory += container.Resources.Limits.Memory().Value()
+		record.Resources.Limits.GPU += container.Resources.Limits.Name("nvidia.com/gpu", resource.DecimalSI).Value()
+		record.Resources.Limits.Storage += container.Resources.Limits.Storage().Value()
+		record.Resources.Limits.StorageEphemeral += container.Resources.Limits.StorageEphemeral().Value()
 	}
 	// copy pod labels, skip ending with "-hash"
 	record.Labels = make(map[string]string)
@@ -184,11 +210,35 @@ func NewPodInfo(pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodI
 	// copy pod start time
 	record.StartTime = pod.Status.StartTime.Time
 	// update pod begin time to the earliest pod start time
-	if record.StartTime.Before(beginTime) {
+	if record.StartTime.After(beginTime) {
 		record.BeginTime = record.StartTime
 	}
 	if node != nil {
 		record.Node = *node
+		// calculate pod's allocation requests as a percentage of node's allocatable resources
+		record.Allocations.Requests.CPU = float64(record.Resources.Requests.CPU) / float64(node.Allocatable.CPU) * 100
+		record.Allocations.Requests.Memory = float64(record.Resources.Requests.Memory) / float64(node.Allocatable.Memory) * 100
+		if node.Allocatable.GPU > 0 {
+			record.Allocations.Requests.GPU = float64(record.Resources.Requests.GPU) / float64(node.Allocatable.GPU) * 100
+		}
+		if node.Allocatable.Storage > 0 {
+			record.Allocations.Requests.Storage = float64(record.Resources.Requests.Storage) / float64(node.Allocatable.Storage) * 100
+		}
+		if node.Allocatable.StorageEphemeral > 0 {
+			record.Allocations.Requests.StorageEphemeral = float64(record.Resources.Requests.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100
+		}
+		// calculate pod's allocation limits as a percentage of node's allocatable resources
+		record.Allocations.Limits.CPU = float64(record.Resources.Limits.CPU) / float64(node.Allocatable.CPU) * 100
+		record.Allocations.Limits.Memory = float64(record.Resources.Limits.Memory) / float64(node.Allocatable.Memory) * 100
+		if node.Allocatable.GPU > 0 {
+			record.Allocations.Limits.GPU = float64(record.Resources.Limits.GPU) / float64(node.Allocatable.GPU) * 100
+		}
+		if node.Allocatable.Storage > 0 {
+			record.Allocations.Limits.Storage = float64(record.Resources.Limits.Storage) / float64(node.Allocatable.Storage) * 100
+		}
+		if node.Allocatable.StorageEphemeral > 0 {
+			record.Allocations.Limits.StorageEphemeral = float64(record.Resources.Limits.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100
+		}
 	}
 	return record
 }
