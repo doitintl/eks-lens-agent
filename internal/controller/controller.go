@@ -63,6 +63,14 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 				"namespace": pod.Namespace,
 				"name":      pod.Name,
 			}).Debug("pod deleted")
+			// skip "Failed" pods with UnsupportedPodSpec reason (e.g. DaemonSet pods on Fargate)
+			if pod.Status.Phase == v1.PodFailed && pod.Status.Reason == "UnsupportedPodSpec" {
+				log.WithFields(logrus.Fields{
+					"namespace": pod.Namespace,
+					"name":      pod.Name,
+				}).Debug("skipped failed pod with UnsupportedPodSpec")
+				return
+			}
 			// get the node info from the cache
 			node, ok := nodeInformer.GetNode(pod.Spec.NodeName)
 			if !ok {
