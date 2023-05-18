@@ -3,11 +3,18 @@ package usage
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+)
+
+const (
+	fargateType = "fargate"
 )
 
 type Allocation struct {
@@ -117,7 +124,7 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 		// assume fargate and get fargate profile name from node label
 		nodegroup = node.GetLabels()["eks.amazonaws.com/fargate-profile"]
 		if nodegroup == "" {
-			nodegroup = "fargate"
+			nodegroup = fargateType
 		}
 	}
 
@@ -133,10 +140,10 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 		instanceType = node.GetLabels()["node.kubernetes.io/instance-type"]
 		// if empty, assume fargate and build instance type based on pattern "fargate-vCPU-memoryGB" where memory is rounded to GiB
 		if instanceType == "" {
-			// get memory in rounded GB
-			memory := float64(node.Status.Capacity.Memory().Value())
-			memoryGB := math.Round(memory / 1024 / 1024 / 1024) //nolint:gomnd
-			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), int(memoryGB))
+			// get memory in GiB
+			memory := float64(node.Status.Capacity.Memory().ScaledValue(resource.Giga))
+			// construct instance type based on pattern "fargate-vCPU-memoryGB"
+			instanceType = fmt.Sprintf("fargate-%dvCPU-%dGB", node.Status.Capacity.Cpu().Value(), int(memory))
 		}
 	}
 
@@ -177,7 +184,7 @@ func NodeInfoFromNode(cluster string, node *v1.Node) NodeInfo {
 	return result
 }
 
-func NewPodInfo(pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodInfo {
+func GetPodInfo(log *logrus.Entry, pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodInfo {
 	record := &PodInfo{}
 	record.Name = pod.GetName()
 	record.Namespace = pod.GetNamespace()
@@ -214,6 +221,11 @@ func NewPodInfo(pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodI
 		record.BeginTime = record.StartTime
 	}
 	if node != nil {
+		// patch fargate node info from pod annotations, if needed
+		err := patchFargateNodeInfo(pod, node)
+		if err != nil {
+			log.WithError(err).WithField("node", node.Name).Warn("failed to patch fargate node info")
+		}
 		record.Node = *node
 		// calculate pod's allocation requests as a percentage of node's allocatable resources
 		record.Allocations.Requests.CPU = float64(record.Resources.Requests.CPU) / float64(node.Allocatable.CPU) * 100          //nolint:gomnd
@@ -241,4 +253,53 @@ func NewPodInfo(pod *v1.Pod, beginTime, endTime time.Time, node *NodeInfo) *PodI
 		}
 	}
 	return record
+}
+
+func patchFargateNodeInfo(pod *v1.Pod, node *NodeInfo) error {
+	if node.ComputeType != fargateType {
+		return nil
+	}
+	// get CPU and memory from pod annotation "CapacityProvisioned": "0.25vCPU 0.5GB",
+	// and patch node allocatable CPU and memory
+	if capacityProvisioned, ok := pod.Annotations["CapacityProvisioned"]; ok {
+		cpu, memory, err := parseCapacityProvisioned(capacityProvisioned)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse capacity provisioned")
+		}
+		node.Allocatable.CPU = cpu
+		// 256MB is reserved for Kubernetes components on Fargate, so we need to subtract it from allocatable memory
+		node.Allocatable.Memory = memory - 256*int64(math.Pow10(6)) //nolint:gomnd
+		// update node instance type: "fargate-{CapacityProvisioned}", e.g. "fargate-0.25vCPU-0.5GB"
+		node.InstanceType = fmt.Sprintf("%s-%s", fargateType, strings.ReplaceAll(capacityProvisioned, " ", "-"))
+	}
+	return nil
+}
+
+func parseCapacityProvisioned(capacityProvisioned string) (int64, int64, error) {
+	// split capacity provisioned string by space
+	capacity := strings.Split(capacityProvisioned, " ")
+	if len(capacity) != 2 { //nolint:gomnd
+		return 0, 0, errors.Errorf("invalid capacity provisioned string: %s", capacityProvisioned)
+	}
+	// parse CPU
+	// remove "vCPU" suffix
+	capacity[0] = strings.TrimSuffix(capacity[0], "vCPU")
+	// convert CPU value to float and if it is less than 1 multiplies it by 1000 add "m" suffix
+	if cpu, err := strconv.ParseFloat(capacity[0], 64); err == nil && cpu < 1 {
+		capacity[0] = strconv.Itoa(int(cpu * 1000)) //nolint:gomnd
+		capacity[0] += "m"
+	}
+
+	cpu, err := resource.ParseQuantity(capacity[0])
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "invalid CPU capacity provisioned")
+	}
+	// parse memory
+	// remove "B" suffix (GB, MB, KB)
+	capacity[1] = strings.TrimSuffix(capacity[1], "B")
+	memory, err := resource.ParseQuantity(capacity[1])
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "invalid memory capacity provisioned")
+	}
+	return cpu.MilliValue(), memory.Value(), nil
 }

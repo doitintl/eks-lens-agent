@@ -72,7 +72,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			// convert PodInfo to usage record
 			endTime := time.Now()
 			beginTime := endTime.Add(-60 * time.Minute)
-			record := usage.NewPodInfo(pod, beginTime, endTime, node)
+			record := usage.GetPodInfo(log, pod, beginTime, endTime, node)
 			// upload the record to EKS Lens
 			log.WithField("pod", record.Name).Debug("uploading one pod record to EKS Lens")
 			err := s.uploader.UploadOne(ctx, record)
@@ -113,7 +113,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 				if !ok {
 					log.Warnf("getting node %s from cache", pod.Spec.NodeName)
 				}
-				record := usage.NewPodInfo(pod, beginTime, now, node)
+				record := usage.GetPodInfo(log, pod, beginTime, now, node)
 				records = append(records, record)
 			}
 			// upload the records to EKS Lens
