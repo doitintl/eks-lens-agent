@@ -27,7 +27,7 @@ type Allocation struct {
 	// storage fraction of total storage
 	Storage float64 `json:"storage,omitempty"`
 	// ephemeral storage fraction of total ephemeral storage
-	StorageEphemeral float64 `json:"storageEphemeral,omitempty"`
+	StorageEphemeral float64 `json:"storage_ephemeral,omitempty"`
 }
 
 type Allocations struct {
@@ -39,7 +39,7 @@ type Ask struct {
 	CPU              int64 `json:"cpu,omitempty"`
 	Memory           int64 `json:"memory,omitempty"`
 	Storage          int64 `json:"storage,omitempty"`
-	StorageEphemeral int64 `json:"storageEphemeral,omitempty"`
+	StorageEphemeral int64 `json:"storage_ephemeral,omitempty"`
 	GPU              int64 `json:"gpu,omitempty"`
 }
 
@@ -60,7 +60,7 @@ type Capacity struct {
 	// local storage in Kibibytes
 	Storage int64 `json:"storage,omitempty"`
 	// ephemeral storage in Kibibytes
-	StorageEphemeral int64 `json:"storageEphemeral,omitempty"`
+	StorageEphemeral int64 `json:"storage_ephemeral,omitempty"`
 }
 
 type NodeInfo struct {
@@ -70,14 +70,14 @@ type NodeInfo struct {
 	Nodegroup    string `json:"nodegroup,omitempty"`
 	InstanceType string `json:"type,omitempty"`
 	// ComputeType: fargate or ec2
-	ComputeType string `json:"computeType,omitempty"`
+	ComputeType string `json:"compute_type,omitempty"`
 	// CapacityType: SPOT or ON_DEMAND
-	CapacityType   string    `json:"capacityType,omitempty"`
+	CapacityType   string    `json:"capacity_type,omitempty"`
 	Region         string    `json:"region"`
 	Zone           string    `json:"zone"`
 	Arch           string    `json:"arch"`
 	OS             string    `json:"os"`
-	OSImage        string    `json:"osImage"`
+	OSImage        string    `json:"os_image"`
 	KernelVersion  string    `json:"kernel"`
 	KubeletVersion string    `json:"kubelet"`
 	Runtime        string    `json:"runtime"`
@@ -91,10 +91,10 @@ type PodInfo struct {
 	Namespace   string            `json:"namespace"`
 	Labels      map[string]string `json:"labels,omitempty"`
 	Node        NodeInfo          `json:"node"`
-	QosClass    string            `json:"qosClass"`
-	StartTime   time.Time         `json:"startTime"`
-	BeginTime   time.Time         `json:"beginTime"`
-	EndTime     time.Time         `json:"endTime"`
+	QosClass    string            `json:"qos_class"`
+	StartTime   time.Time         `json:"start_time"`
+	BeginTime   time.Time         `json:"begin_time"`
+	EndTime     time.Time         `json:"end_time"`
 	Resources   Resources         `json:"resources,omitempty"`
 	Allocations Allocations       `json:"allocations,omitempty"`
 }

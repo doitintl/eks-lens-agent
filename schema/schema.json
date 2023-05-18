@@ -1,6 +1,6 @@
 {
   "type": "record",
-  "name": "PodInfo",
+  "name": "pod_info",
   "fields": [
     {
       "name": "name",
@@ -21,7 +21,7 @@
       "name": "node",
       "type": {
         "type": "record",
-        "name": "Node",
+        "name": "node",
         "fields": [
           {
             "name": "id",
@@ -44,11 +44,11 @@
             "type": "string"
           },
           {
-            "name": "computeType",
+            "name": "compute_type",
             "type": "string"
           },
           {
-            "name": "capacityType",
+            "name": "capacity_type",
             "type": "string"
           },
           {
@@ -68,7 +68,7 @@
             "type": "string"
           },
           {
-            "name": "osImage",
+            "name": "os_image",
             "type": "string"
           },
           {
@@ -87,7 +87,7 @@
             "name": "allocatable",
             "type": {
               "type": "record",
-              "name": "Allocatable",
+              "name": "allocatable",
               "fields": [
                 {
                   "name": "cpu",
@@ -113,7 +113,7 @@
                   "default": 0
                 },
                 {
-                  "name": "storageEphemeral",
+                  "name": "storage_ephemeral",
                   "type": "long",
                   "default": 0
                 }
@@ -150,7 +150,7 @@
                   "default": 0
                 },
                 {
-                  "name": "storageEphemeral",
+                  "name": "storage_ephemeral",
                   "type": "long",
                   "default": 0
                 }
@@ -168,26 +168,26 @@
       }
     },
     {
-      "name": "qosClass",
+      "name": "qos_class",
       "type": "string",
       "default": "BestEffort"
     },
     {
-      "name": "startTime",
+      "name": "start_time",
       "type": {
         "type": "string",
         "logicalType": "timestamp-millis"
       }
     },
     {
-      "name": "beginTime",
+      "name": "begin_time",
       "type": {
         "type": "string",
         "logicalType": "timestamp-millis"
       }
     },
     {
-      "name": "endTime",
+      "name": "end_time",
       "type": {
         "type": "string",
         "logicalType": "timestamp-millis"
@@ -197,13 +197,13 @@
       "name": "resources",
       "type": {
         "type": "record",
-        "name": "Resources",
+        "name": "resources",
         "fields": [
           {
             "name": "limits",
             "type": {
               "type": "record",
-              "name": "Limits",
+              "name": "limits",
               "fields": [
                 {
                   "name": "cpu",
@@ -226,7 +226,7 @@
                   "default": 0
                 },
                 {
-                  "name": "storageEphemeral",
+                  "name": "storage_ephemeral",
                   "type": "long",
                   "default": 0
                 }
@@ -237,7 +237,7 @@
             "name": "requests",
             "type": {
               "type": "record",
-              "name": "Requests",
+              "name": "requests",
               "fields": [
                 {
                   "name": "cpu",
@@ -260,7 +260,7 @@
                   "default": 0
                 },
                 {
-                  "name": "storageEphemeral",
+                  "name": "storage_ephemeral",
                   "type": "long",
                   "default": 0
                 }
@@ -274,13 +274,13 @@
       "name": "allocations",
       "type": {
         "type": "record",
-        "name": "Allocations",
+        "name": "allocations",
         "fields": [
           {
             "name": "limits",
             "type": {
               "type": "record",
-              "name": "AllocationLimits",
+              "name": "allocation_imits",
               "fields": [
                 {
                   "name": "cpu",
@@ -301,7 +301,7 @@
                   "default": 0
                 },
                 {
-                  "name": "storageEphemeral",
+                  "name": "storage_ephemeral",
                   "type": "double",
                   "default": 0
                 }
@@ -312,7 +312,7 @@
             "name": "requests",
             "type": {
               "type": "record",
-              "name": "AllocationRequests",
+              "name": "allocation_requests",
               "fields": [
                 {
                   "name": "cpu",
@@ -333,7 +333,7 @@
                   "default": 0
                 },
                 {
-                  "name": "storageEphemeral",
+                  "name": "storage_ephemeral",
                   "type": "double",
                   "default": 0
                 }
