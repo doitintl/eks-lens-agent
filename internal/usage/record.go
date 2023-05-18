@@ -272,6 +272,11 @@ func patchFargateNodeInfo(pod *v1.Pod, node *NodeInfo) error {
 		// update node instance type: "fargate-{CapacityProvisioned}", e.g. "fargate-0.25vCPU-0.5GB"
 		node.InstanceType = fmt.Sprintf("%s-%s", fargateType, strings.ReplaceAll(capacityProvisioned, " ", "-"))
 	}
+	// get Fargate profile name from pod label "eks.amazonaws.com/fargate-profile"
+	// and patch node nodegroup name
+	if fargateProfileName, ok := pod.Labels["eks.amazonaws.com/fargate-profile"]; ok {
+		node.Nodegroup = fargateProfileName
+	}
 	return nil
 }
 

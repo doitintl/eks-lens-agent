@@ -280,6 +280,9 @@ func TestPatchFargateNodeInfo(t *testing.T) {
 					Annotations: map[string]string{
 						"CapacityProvisioned": "0.25vCPU 0.5GB",
 					},
+					Labels: map[string]string{
+						"eks.amazonaws.com/fargate-profile": "fp-1",
+					},
 				},
 			},
 			node: &NodeInfo{
@@ -293,6 +296,7 @@ func TestPatchFargateNodeInfo(t *testing.T) {
 			expectedNodeAllocatable: NodeInfo{
 				ComputeType:  fargateType,
 				InstanceType: "fargate-0.25vCPU-0.5GB",
+				Nodegroup:    "fp-1",
 				Allocatable: Capacity{
 					CPU:    250,
 					Memory: 244 * int64(math.Pow10(6)), // 0.244GB
