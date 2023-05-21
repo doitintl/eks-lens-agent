@@ -29,4 +29,11 @@ spec:
             - name: LOG_LEVEL
               value: debug
           imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
       restartPolicy: Always
