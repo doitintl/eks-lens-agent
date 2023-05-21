@@ -48,12 +48,13 @@ func (s *scanner) DeletePod(obj interface{}) {
 		"namespace": pod.Namespace,
 		"name":      pod.Name,
 	}).Debug("pod deleted")
-	// skip "Failed" pods with UnsupportedPodSpec reason (e.g. DaemonSet pods on Fargate)
-	if pod.Status.Phase == v1.PodFailed && pod.Status.Reason == "UnsupportedPodSpec" {
+	// skip "Failed" pods (e.g. DaemonSet pods on Fargate)
+	if pod.Status.Phase == v1.PodFailed {
 		s.log.WithFields(logrus.Fields{
 			"namespace": pod.Namespace,
 			"name":      pod.Name,
-		}).Debug("skipped failed pod with UnsupportedPodSpec")
+			"reason":    pod.Status.Reason,
+		}).Debug("skipped failed pod ")
 		return
 	}
 	// get the node info from the cache

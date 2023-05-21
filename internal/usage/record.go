@@ -214,11 +214,13 @@ func GetPodInfo(log *logrus.Entry, pod *v1.Pod, beginTime, endTime time.Time, no
 	// set pod measured time
 	record.BeginTime = beginTime
 	record.EndTime = endTime
-	// copy pod start time
-	record.StartTime = pod.Status.StartTime.Time
-	// update pod begin time to the earliest pod start time
-	if record.StartTime.After(beginTime) {
-		record.BeginTime = record.StartTime
+	// copy pod start time if available
+	if pod.Status.StartTime != nil {
+		record.StartTime = pod.Status.StartTime.Time
+		// update pod begin time to the earliest pod start time
+		if record.StartTime.After(beginTime) {
+			record.BeginTime = record.StartTime
+		}
 	}
 	if node != nil {
 		// patch fargate node info from pod annotations, if needed
