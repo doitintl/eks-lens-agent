@@ -58,7 +58,7 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 		return errors.Wrap(err, "initializing kubernetes client")
 	}
 
-	uploader, err := firehose.NewUploader(ctx, cfg.StreamName)
+	uploader, err := firehose.NewUploader(ctx, log, cfg.StreamName)
 	if err != nil {
 		return errors.Wrap(err, "initializing firehose uploader")
 	}

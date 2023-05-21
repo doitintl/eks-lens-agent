@@ -230,28 +230,25 @@ func GetPodInfo(log *logrus.Entry, pod *v1.Pod, beginTime, endTime time.Time, no
 		}
 		record.Node = *node
 		// calculate pod's allocation requests as a percentage of node's allocatable resources
-		record.Allocations.Requests.CPU = float64(record.Resources.Requests.CPU) / float64(node.Allocatable.CPU) * 100          //nolint:gomnd
-		record.Allocations.Requests.Memory = float64(record.Resources.Requests.Memory) / float64(node.Allocatable.Memory) * 100 //nolint:gomnd
+		if node.Allocatable.CPU > 0 {
+			record.Allocations.Requests.CPU = float64(record.Resources.Requests.CPU) / float64(node.Allocatable.CPU) * 100 //nolint:gomnd
+			record.Allocations.Limits.CPU = float64(record.Resources.Limits.CPU) / float64(node.Allocatable.CPU) * 100     //nolint:gomnd
+		}
+		if node.Allocatable.Memory > 0 {
+			record.Allocations.Requests.Memory = float64(record.Resources.Requests.Memory) / float64(node.Allocatable.Memory) * 100 //nolint:gomnd
+			record.Allocations.Limits.Memory = float64(record.Resources.Limits.Memory) / float64(node.Allocatable.Memory) * 100     //nolint:gomnd
+		}
 		if node.Allocatable.GPU > 0 {
 			record.Allocations.Requests.GPU = float64(record.Resources.Requests.GPU) / float64(node.Allocatable.GPU) * 100 //nolint:gomnd
+			record.Allocations.Limits.GPU = float64(record.Resources.Limits.GPU) / float64(node.Allocatable.GPU) * 100     //nolint:gomnd
 		}
 		if node.Allocatable.Storage > 0 {
 			record.Allocations.Requests.Storage = float64(record.Resources.Requests.Storage) / float64(node.Allocatable.Storage) * 100 //nolint:gomnd
+			record.Allocations.Limits.Storage = float64(record.Resources.Limits.Storage) / float64(node.Allocatable.Storage) * 100     //nolint:gomnd
 		}
 		if node.Allocatable.StorageEphemeral > 0 {
 			record.Allocations.Requests.StorageEphemeral = float64(record.Resources.Requests.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100 //nolint:gomnd
-		}
-		// calculate pod's allocation limits as a percentage of node's allocatable resources
-		record.Allocations.Limits.CPU = float64(record.Resources.Limits.CPU) / float64(node.Allocatable.CPU) * 100          //nolint:gomnd
-		record.Allocations.Limits.Memory = float64(record.Resources.Limits.Memory) / float64(node.Allocatable.Memory) * 100 //nolint:gomnd
-		if node.Allocatable.GPU > 0 {
-			record.Allocations.Limits.GPU = float64(record.Resources.Limits.GPU) / float64(node.Allocatable.GPU) * 100 //nolint:gomnd
-		}
-		if node.Allocatable.Storage > 0 {
-			record.Allocations.Limits.Storage = float64(record.Resources.Limits.Storage) / float64(node.Allocatable.Storage) * 100 //nolint:gomnd
-		}
-		if node.Allocatable.StorageEphemeral > 0 {
-			record.Allocations.Limits.StorageEphemeral = float64(record.Resources.Limits.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100 //nolint:gomnd
+			record.Allocations.Limits.StorageEphemeral = float64(record.Resources.Limits.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100     //nolint:gomnd
 		}
 	}
 	return record

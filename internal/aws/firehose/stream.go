@@ -11,21 +11,22 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/firehose/types"
 	"github.com/doitintl/eks-lens-agent/internal/usage"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 const maxBatchSize = 500
 
 type Uploader interface {
 	Upload(ctx context.Context, records []*usage.PodInfo) error
-	UploadOne(ctx context.Context, record *usage.PodInfo) error
 }
 
 type firehoseUploader struct {
-	Client     *firehose.Client
-	StreamName string
+	client *firehose.Client
+	log    *logrus.Entry
+	stream string
 }
 
-func NewUploader(ctx context.Context, streamName string) (Uploader, error) {
+func NewUploader(ctx context.Context, log *logrus.Entry, streamName string) (Uploader, error) {
 	// create a new Amazon Kinesis Data Firehose client
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
@@ -33,8 +34,9 @@ func NewUploader(ctx context.Context, streamName string) (Uploader, error) {
 	}
 	client := firehose.NewFromConfig(cfg)
 	return &firehoseUploader{
-		Client:     client,
-		StreamName: streamName,
+		client: client,
+		log:    log,
+		stream: streamName,
 	}, nil
 }
 
@@ -53,12 +55,14 @@ func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo)
 		for k := i; k < j; k++ {
 			buffer, err := json.Marshal(records[k])
 			if err != nil {
-				return errors.Wrap(err, "marshaling record")
+				u.log.WithField("pod", records[k].Name).WithError(err).Error("marshaling record")
+				continue
 			}
 			dst := &bytes.Buffer{}
 			err = json.Compact(dst, buffer)
 			if err != nil {
-				return errors.Wrap(err, "compacting record")
+				u.log.WithField("pod", records[k].Name).WithError(err).Error("compacting record")
+				continue
 			}
 			batch = append(batch, types.Record{
 				Data: dst.Bytes(),
@@ -67,36 +71,13 @@ func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo)
 
 		// send records[i:j] to Amazon Kinesis Data Firehose
 		input := &firehose.PutRecordBatchInput{
-			DeliveryStreamName: aws.String(u.StreamName),
+			DeliveryStreamName: aws.String(u.stream),
 			Records:            batch,
 		}
-		_, err := u.Client.PutRecordBatch(ctx, input)
+		_, err := u.client.PutRecordBatch(ctx, input)
 		if err != nil {
 			return errors.Wrap(err, "putting record batch to Amazon Kinesis Data Firehose")
 		}
-	}
-	return nil
-}
-
-func (u *firehoseUploader) UploadOne(ctx context.Context, record *usage.PodInfo) error {
-	buffer, err := json.Marshal(record)
-	if err != nil {
-		return errors.Wrap(err, "marshaling record")
-	}
-	dst := &bytes.Buffer{}
-	err = json.Compact(dst, buffer)
-	if err != nil {
-		return errors.Wrap(err, "compacting record")
-	}
-	input := &firehose.PutRecordInput{
-		DeliveryStreamName: aws.String(u.StreamName),
-		Record: &types.Record{
-			Data: dst.Bytes(),
-		},
-	}
-	_, err = u.Client.PutRecord(ctx, input)
-	if err != nil {
-		return errors.Wrap(err, "putting single record to Amazon Kinesis Data Firehose")
 	}
 	return nil
 }
