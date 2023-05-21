@@ -34,8 +34,8 @@ func runController(ctx context.Context, cluster string, log *logrus.Entry, clien
 	<-loaded
 
 	// create controller and run it
-	scanner := controller.New(clientset, uploader)
-	err := scanner.Run(ctx, log, nodesInformer)
+	scanner := controller.New(log, clientset, uploader, nodesInformer)
+	err := scanner.Run(ctx)
 	if err != nil {
 		return errors.Wrap(err, "running scanner controller")
 	}

@@ -21,22 +21,55 @@ const (
 )
 
 type Scanner interface {
-	Run(ctx context.Context, log *logrus.Entry, informer NodesInformer) error
+	Run(ctx context.Context) error
 }
 
 type scanner struct {
-	client   *kubernetes.Clientset
-	uploader firehose.Uploader
+	log          *logrus.Entry
+	client       *kubernetes.Clientset
+	uploader     firehose.Uploader
+	nodeInformer NodesInformer
+	deletedPods  []*usage.PodInfo
 }
 
-func New(client *kubernetes.Clientset, uploader firehose.Uploader) Scanner {
+func New(log *logrus.Entry, client *kubernetes.Clientset, uploader firehose.Uploader, informer NodesInformer) Scanner {
 	return &scanner{
-		client:   client,
-		uploader: uploader,
+		log:          log,
+		client:       client,
+		uploader:     uploader,
+		nodeInformer: informer,
+		deletedPods:  make([]*usage.PodInfo, 0),
 	}
 }
 
-func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer NodesInformer) error {
+func (s *scanner) DeletePod(obj interface{}) {
+	pod := obj.(*v1.Pod)
+	s.log.WithFields(logrus.Fields{
+		"namespace": pod.Namespace,
+		"name":      pod.Name,
+	}).Debug("pod deleted")
+	// skip "Failed" pods with UnsupportedPodSpec reason (e.g. DaemonSet pods on Fargate)
+	if pod.Status.Phase == v1.PodFailed && pod.Status.Reason == "UnsupportedPodSpec" {
+		s.log.WithFields(logrus.Fields{
+			"namespace": pod.Namespace,
+			"name":      pod.Name,
+		}).Debug("skipped failed pod with UnsupportedPodSpec")
+		return
+	}
+	// get the node info from the cache
+	node, ok := s.nodeInformer.GetNode(pod.Spec.NodeName)
+	if !ok {
+		s.log.Warnf("getting node %s from cache", pod.Spec.NodeName)
+	}
+	// convert PodInfo to usage record
+	now := time.Now()
+	beginTime := now.Add(-syncPeriod)
+	record := usage.GetPodInfo(s.log, pod, beginTime, now, node)
+	// keep the record till the next sync period
+	s.deletedPods = append(s.deletedPods, record)
+}
+
+func (s *scanner) Run(ctx context.Context) error {
 	// Create a new PodInfo shared informer
 	podInformer := cache.NewSharedIndexInformer(
 		&cache.ListWatch{
@@ -56,39 +89,7 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 	)
 
 	// on delete upload PodInfo record with entTime	(now)
-	_, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj interface{}) {
-			pod := obj.(*v1.Pod)
-			log.WithFields(logrus.Fields{
-				"namespace": pod.Namespace,
-				"name":      pod.Name,
-			}).Debug("pod deleted")
-			// skip "Failed" pods with UnsupportedPodSpec reason (e.g. DaemonSet pods on Fargate)
-			if pod.Status.Phase == v1.PodFailed && pod.Status.Reason == "UnsupportedPodSpec" {
-				log.WithFields(logrus.Fields{
-					"namespace": pod.Namespace,
-					"name":      pod.Name,
-				}).Debug("skipped failed pod with UnsupportedPodSpec")
-				return
-			}
-			// get the node info from the cache
-			node, ok := nodeInformer.GetNode(pod.Spec.NodeName)
-			if !ok {
-				log.Warnf("getting node %s from cache", pod.Spec.NodeName)
-			}
-
-			// convert PodInfo to usage record
-			endTime := time.Now()
-			beginTime := endTime.Add(-60 * time.Minute)
-			record := usage.GetPodInfo(log, pod, beginTime, endTime, node)
-			// upload the record to EKS Lens
-			log.WithField("pod", record.Name).Debug("uploading one pod record to EKS Lens")
-			err := s.uploader.UploadOne(ctx, record)
-			if err != nil {
-				log.WithError(err).Error("uploading pod")
-			}
-		},
-	})
+	_, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{DeleteFunc: s.DeletePod})
 	if err != nil {
 		return errors.Wrap(err, "adding pod informer event handler")
 	}
@@ -117,18 +118,24 @@ func (s *scanner) Run(ctx context.Context, log *logrus.Entry, nodeInformer Nodes
 			for _, obj := range pods {
 				pod := obj.(*v1.Pod)
 				// get the node info from the cache
-				node, ok := nodeInformer.GetNode(pod.Spec.NodeName)
+				node, ok := s.nodeInformer.GetNode(pod.Spec.NodeName)
 				if !ok {
-					log.Warnf("getting node %s from cache", pod.Spec.NodeName)
+					s.log.Warnf("getting node %s from cache", pod.Spec.NodeName)
 				}
-				record := usage.GetPodInfo(log, pod, beginTime, now, node)
+				record := usage.GetPodInfo(s.log, pod, beginTime, now, node)
 				records = append(records, record)
 			}
+			// add deleted pods and clear the list if any
+			if len(s.deletedPods) > 0 {
+				s.log.WithField("count", len(s.deletedPods)).Debug("adding deleted pods to the pod records")
+				records = append(records, s.deletedPods...)
+				s.deletedPods = make([]*usage.PodInfo, 0)
+			}
 			// upload the records to EKS Lens
-			log.WithField("count", len(records)).Debug("uploading pod records to EKS Lens")
+			s.log.WithField("count", len(records)).Debug("uploading pod records to EKS Lens")
 			err = s.uploader.Upload(ctx, records)
 			if err != nil {
-				log.WithError(err).Error("uploading pods to EKS Lens")
+				s.log.WithError(err).Error("uploading pods records to EKS Lens")
 			}
 		}
 
