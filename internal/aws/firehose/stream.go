@@ -81,7 +81,7 @@ func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo)
 		}
 
 		// send records[i:j] to Amazon Kinesis Data Firehose, if not in develop-mode
-		if developMode {
+		if !developMode {
 			input := &firehose.PutRecordBatchInput{
 				DeliveryStreamName: aws.String(u.stream),
 				Records:            batch,
