@@ -69,14 +69,22 @@ func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo)
 			})
 		}
 
-		// send records[i:j] to Amazon Kinesis Data Firehose
-		input := &firehose.PutRecordBatchInput{
-			DeliveryStreamName: aws.String(u.stream),
-			Records:            batch,
+		// get develop-mode flag from context
+		developMode := false
+		if val := ctx.Value("develop-mode"); val != nil {
+			developMode = val.(bool)
 		}
-		_, err := u.client.PutRecordBatch(ctx, input)
-		if err != nil {
-			return errors.Wrap(err, "putting record batch to Amazon Kinesis Data Firehose")
+
+		// send records[i:j] to Amazon Kinesis Data Firehose, if not in develop-mode
+		if developMode {
+			input := &firehose.PutRecordBatchInput{
+				DeliveryStreamName: aws.String(u.stream),
+				Records:            batch,
+			}
+			_, err := u.client.PutRecordBatch(ctx, input)
+			if err != nil {
+				return errors.Wrap(err, "putting record batch to Amazon Kinesis Data Firehose")
+			}
 		}
 	}
 	return nil

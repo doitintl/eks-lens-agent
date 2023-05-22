@@ -11,6 +11,8 @@ type Config struct {
 	ClusterName string `json:"cluster-name"`
 	// Amazon Kinesis Data Stream name
 	StreamName string `json:"stream-name"`
+	// DevelopMode mode
+	DevelopMode bool `json:"develop-mode"`
 }
 
 func LoadConfig(c *cli.Context) Config {
@@ -18,5 +20,6 @@ func LoadConfig(c *cli.Context) Config {
 	cfg.KubeConfigPath = c.String("kubeconfig")
 	cfg.ClusterName = c.String("cluster-name")
 	cfg.StreamName = c.String("stream-name")
+	cfg.DevelopMode = c.Bool("develop-mode")
 	return cfg
 }

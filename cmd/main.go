@@ -46,7 +46,12 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 	ctx, ctxCancel := context.WithCancel(ctx)
 	defer ctxCancel()
 
-	log.Infof("eks-lens agent started")
+	// add debug mode to context
+	if cfg.DevelopMode {
+		ctx = context.WithValue(ctx, "develop-mode", true)
+	}
+
+	log.WithField("develop-mode", cfg.DevelopMode).Infof("eks-lens agent started")
 
 	restconfig, err := retrieveKubeConfig(log, cfg)
 	if err != nil {
@@ -162,6 +167,12 @@ func main() {
 						Usage:    "produce log in JSON format: Logstash and Splunk friendly",
 						EnvVars:  []string{"LOG_JSON"},
 						Category: "Logging",
+					},
+					&cli.BoolFlag{
+						Name:     "develop-mode",
+						Usage:    "enable develop mode",
+						EnvVars:  []string{"DEV_MODE"},
+						Category: "Configuration",
 					},
 				},
 				Action: runCmd,

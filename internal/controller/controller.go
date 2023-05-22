@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	syncPeriod = 15 * time.Minute
+	syncPeriod      = 15 * time.Minute
+	syncPeriodDebug = 5 * time.Minute
 )
 
 type Scanner interface {
@@ -105,8 +106,15 @@ func (s *scanner) Run(ctx context.Context) error {
 		return errors.New("failed to sync cache")
 	}
 
-	// get pod list from the cache every "syncPeriod" minutes
-	ticker := time.NewTicker(syncPeriod)
+	// define sybc period
+	tick := syncPeriod
+	// get develop-mode mode from context
+	if val := ctx.Value("develop-mode"); val != nil && val.(bool) {
+		tick = syncPeriodDebug
+	}
+
+	// get pod list from the cache every "syncPeriod/DevelopMode" minutes
+	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 	for {
 		upload := func() {
