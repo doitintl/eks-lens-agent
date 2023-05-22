@@ -18,6 +18,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
+type contextKey string
+
+const (
+	developModeKey contextKey = "develop-mode"
+)
+
 var (
 	version      = "dev"
 	buildDate    = "unknown"
@@ -48,7 +54,7 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 
 	// add debug mode to context
 	if cfg.DevelopMode {
-		ctx = context.WithValue(ctx, "develop-mode", true)
+		ctx = context.WithValue(ctx, developModeKey, true)
 	}
 
 	log.WithField("develop-mode", cfg.DevelopMode).Infof("eks-lens agent started")

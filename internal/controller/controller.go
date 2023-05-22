@@ -17,9 +17,12 @@ import (
 )
 
 const (
-	syncPeriod      = 15 * time.Minute
-	syncPeriodDebug = 5 * time.Minute
+	syncPeriod                 = 15 * time.Minute
+	syncPeriodDebug            = 5 * time.Minute
+	developModeKey  contextKey = "develop-mode"
 )
+
+type contextKey string
 
 type Scanner interface {
 	Run(ctx context.Context) error
@@ -106,10 +109,10 @@ func (s *scanner) Run(ctx context.Context) error {
 		return errors.New("failed to sync cache")
 	}
 
-	// define sybc period
+	// define sync period
 	tick := syncPeriod
 	// get develop-mode mode from context
-	if val := ctx.Value("develop-mode"); val != nil && val.(bool) {
+	if val := ctx.Value(developModeKey); val != nil && val.(bool) {
 		tick = syncPeriodDebug
 	}
 

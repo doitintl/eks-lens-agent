@@ -14,7 +14,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const maxBatchSize = 500
+type contextKey string
+
+const (
+	maxBatchSize              = 500
+	developModeKey contextKey = "develop-mode"
+)
 
 type Uploader interface {
 	Upload(ctx context.Context, records []*usage.PodInfo) error
@@ -71,7 +76,7 @@ func (u *firehoseUploader) Upload(ctx context.Context, records []*usage.PodInfo)
 
 		// get develop-mode flag from context
 		developMode := false
-		if val := ctx.Value("develop-mode"); val != nil {
+		if val := ctx.Value(developModeKey); val != nil {
 			developMode = val.(bool)
 		}
 
