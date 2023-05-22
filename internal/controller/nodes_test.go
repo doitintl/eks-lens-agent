@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/doitintl/eks-lens-agent/internal/usage"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,7 +79,7 @@ func TestNodesInformerLoad(t *testing.T) {
 			// Load the nodes using the fake clientset
 			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
 			defer cancel()
-			loaded := nodesInformer.Load(ctx, "test-cluster", clientset)
+			loaded, _ := nodesInformer.Load(ctx, logrus.NewEntry(logrus.New()), "test-cluster", clientset)
 
 			// Check if the nodes are loaded
 			select {

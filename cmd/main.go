@@ -35,13 +35,16 @@ var (
 func runController(ctx context.Context, cluster string, log *logrus.Entry, clientset *kubernetes.Clientset, uploader firehose.Uploader) error {
 	// load nodes
 	nodesInformer := controller.NewNodesInformer()
-	loaded := nodesInformer.Load(ctx, cluster, clientset)
+	loaded, err := nodesInformer.Load(ctx, log, cluster, clientset)
+	if err != nil {
+		return errors.Wrap(err, "loading nodes")
+	}
 	// wait for nodes to be loaded
 	<-loaded
 
 	// create controller and run it
 	scanner := controller.New(log, clientset, uploader, nodesInformer)
-	err := scanner.Run(ctx)
+	err = scanner.Run(ctx)
 	if err != nil {
 		return errors.Wrap(err, "running scanner controller")
 	}

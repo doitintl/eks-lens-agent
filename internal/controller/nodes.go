@@ -2,11 +2,12 @@ package controller
 
 import (
 	"context"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/doitintl/eks-lens-agent/internal/usage"
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,8 +16,18 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+const (
+	delayDelete         = 1 * time.Minute
+	nodeCacheSyncPeriod = 5 * time.Minute
+)
+
+var (
+	// ErrCacheSync is returned when the cache fails to sync
+	ErrCacheSync = errors.New("failed to sync cache")
+)
+
 type NodesInformer interface {
-	Load(ctx context.Context, cluster string, clientset kubernetes.Interface) chan bool
+	Load(ctx context.Context, log *logrus.Entry, cluster string, clientset kubernetes.Interface) (chan bool, error)
 	GetNode(nodeName string) (*usage.NodeInfo, bool)
 }
 
@@ -39,9 +50,11 @@ func (n *NodesMap) GetNode(nodeName string) (*usage.NodeInfo, bool) {
 }
 
 // Load loads the NodesMap with the current nodes in the cluster return channel to signal when the map is loaded
-func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernetes.Interface) chan bool {
+//
+//nolint:funlen
+func (n *NodesMap) Load(ctx context.Context, log *logrus.Entry, cluster string, clientset kubernetes.Interface) (chan bool, error) {
 	// Create a new Node informer
-	nodeInformer := cache.NewSharedIndexInformer(
+	nodeInformer := cache.NewSharedInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (object runtime.Object, err error) {
 				return clientset.CoreV1().Nodes().List(context.Background(), options) //nolint:wrapcheck
@@ -51,20 +64,19 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 			},
 		},
 		&v1.Node{},
-		0, // resyncPeriod
-		cache.Indexers{},
+		nodeCacheSyncPeriod,
 	)
 
 	// create stopper channel
 	stopper := make(chan struct{})
-	defer close(stopper)
 
 	// Start the Node informer
 	go nodeInformer.Run(stopper)
 
 	// Wait for the Node informer to sync
+	log.Debug("waiting for node informer to sync")
 	if !cache.WaitForCacheSync(make(chan struct{}), nodeInformer.HasSynced) {
-		log.Panicf("Error syncing node informer cache")
+		return nil, ErrCacheSync
 	}
 
 	// Process Node add and delete events
@@ -74,6 +86,7 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 			nodeInfo := usage.NodeInfoFromNode(cluster, node)
 			n.mu.Lock()
 			defer n.mu.Unlock()
+			log.WithField("node", node.Name).Debug("adding node to map")
 			n.data[node.Name] = nodeInfo
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -84,11 +97,18 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 			}
 			n.mu.Lock()
 			defer n.mu.Unlock()
-			delete(n.data, node.Name)
+			// non-blocking delete from the map after 5 minutes
+			go func() {
+				time.Sleep(delayDelete)
+				n.mu.Lock()
+				defer n.mu.Unlock()
+				log.WithField("node", node.Name).Debug("deleting node from map after delay")
+				delete(n.data, node.Name)
+			}()
 		},
 	})
 	if err != nil {
-		log.Panicf("Error adding event handler to node informer: %v", err)
+		return nil, errors.Wrap(err, "failed to add event handler to node informer")
 	}
 
 	// Create a channel to signal when the map is loaded
@@ -97,10 +117,6 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 	// Update the Node map periodically
 	previousResourceVersion := "0" // the resource version of the nodes at the last sync
 	go func() {
-		ticker := time.NewTicker(syncPeriod)
-		// abort if the context is cancelled
-		defer ticker.Stop()
-
 		// refresh the nodes map and send to the loaded channel (if not already sent)
 		refresh := func() {
 			n.mu.Lock()
@@ -112,9 +128,14 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 				return
 			}
 
-			// If the nodes have been updated, update the nodes map
+			// clear the nodes map
+			log.Debug("refreshing nodes map with latest nodes")
+			n.data = make(map[string]usage.NodeInfo)
+
+			// update the nodes map
 			for _, obj := range nodeInformer.GetStore().List() {
 				node := obj.(*v1.Node)
+				log.WithField("node", node.Name).Debug("adding node to map")
 				n.data[node.Name] = usage.NodeInfoFromNode(cluster, node)
 			}
 
@@ -133,14 +154,21 @@ func (n *NodesMap) Load(ctx context.Context, cluster string, clientset kubernete
 		// refresh the nodes map once before starting the ticker
 		refresh()
 
-		// loop until the context is cancelled
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			refresh()
+		// refresh the nodes map periodically
+		ticker := time.NewTicker(nodeCacheSyncPeriod)
+		defer ticker.Stop()
+		for {
+			// loop until the context is cancelled
+			select {
+			case <-ctx.Done():
+				// context is cancelled, close the stopper channel to stop the informer
+				close(stopper)
+				return
+			case <-ticker.C:
+				refresh()
+			}
 		}
 	}()
 
-	return loaded
+	return loaded, nil
 }

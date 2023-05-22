@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	syncPeriod                 = 15 * time.Minute
-	syncPeriodDebug            = 5 * time.Minute
-	developModeKey  contextKey = "develop-mode"
+	podCacheSyncPeriod            = 5 * time.Minute
+	syncPeriod                    = 15 * time.Minute
+	syncPeriodDebug               = 5 * time.Minute
+	developModeKey     contextKey = "develop-mode"
 )
 
 type contextKey string
@@ -64,7 +65,7 @@ func (s *scanner) DeletePod(obj interface{}) {
 	// get the node info from the cache
 	node, ok := s.nodeInformer.GetNode(pod.Spec.NodeName)
 	if !ok {
-		s.log.Warnf("getting node %s from cache", pod.Spec.NodeName)
+		s.log.Warnf("failed to get node %s from cache", pod.Spec.NodeName)
 	}
 	// convert PodInfo to usage record
 	now := time.Now()
@@ -89,7 +90,7 @@ func (s *scanner) Run(ctx context.Context) error {
 			DisableChunking: true,
 		},
 		&v1.Pod{},
-		syncPeriod,
+		podCacheSyncPeriod,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 	)
 
@@ -116,44 +117,44 @@ func (s *scanner) Run(ctx context.Context) error {
 		tick = syncPeriodDebug
 	}
 
+	// upload function
+	upload := func() {
+		// get the list of pods from the cache
+		pods := podInformer.GetStore().List()
+		// convert PodInfo to usage record
+		now := time.Now()
+		beginTime := now.Add(-syncPeriod)
+		records := make([]*usage.PodInfo, 0, len(pods))
+		for _, obj := range pods {
+			pod := obj.(*v1.Pod)
+			// get the node info from the cache
+			node, ok := s.nodeInformer.GetNode(pod.Spec.NodeName)
+			if !ok {
+				s.log.Warnf("getting node %s from cache", pod.Spec.NodeName)
+			}
+			record := usage.GetPodInfo(s.log, pod, beginTime, now, node)
+			records = append(records, record)
+		}
+		// add deleted pods and clear the list if any
+		if len(s.deletedPods) > 0 {
+			s.log.WithField("count", len(s.deletedPods)).Debug("adding deleted pods to the pod records")
+			records = append(records, s.deletedPods...)
+			s.deletedPods = make([]*usage.PodInfo, 0)
+		}
+		// upload the records to EKS Lens
+		s.log.WithField("count", len(records)).Debug("uploading pod records to EKS Lens")
+		err = s.uploader.Upload(ctx, records)
+		if err != nil {
+			s.log.WithError(err).Error("uploading pods records to EKS Lens")
+		}
+	}
+	// upload first time
+	upload()
+
 	// get pod list from the cache every "syncPeriod/DevelopMode" minutes
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
 	for {
-		upload := func() {
-			// get the list of pods from the cache
-			pods := podInformer.GetStore().List()
-			// convert PodInfo to usage record
-			now := time.Now()
-			beginTime := now.Add(-syncPeriod)
-			records := make([]*usage.PodInfo, 0, len(pods))
-			for _, obj := range pods {
-				pod := obj.(*v1.Pod)
-				// get the node info from the cache
-				node, ok := s.nodeInformer.GetNode(pod.Spec.NodeName)
-				if !ok {
-					s.log.Warnf("getting node %s from cache", pod.Spec.NodeName)
-				}
-				record := usage.GetPodInfo(s.log, pod, beginTime, now, node)
-				records = append(records, record)
-			}
-			// add deleted pods and clear the list if any
-			if len(s.deletedPods) > 0 {
-				s.log.WithField("count", len(s.deletedPods)).Debug("adding deleted pods to the pod records")
-				records = append(records, s.deletedPods...)
-				s.deletedPods = make([]*usage.PodInfo, 0)
-			}
-			// upload the records to EKS Lens
-			s.log.WithField("count", len(records)).Debug("uploading pod records to EKS Lens")
-			err = s.uploader.Upload(ctx, records)
-			if err != nil {
-				s.log.WithError(err).Error("uploading pods records to EKS Lens")
-			}
-		}
-
-		// upload first time
-		upload()
-
 		select {
 		case <-ctx.Done():
 			return nil
