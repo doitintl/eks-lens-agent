@@ -89,7 +89,7 @@ func run(ctx context.Context, log *logrus.Entry, cfg config.Config) error {
 	return nil
 }
 
-func prepareLogler(cfg config.Config, c *cli.Context) *logrus.Entry {
+func prepareLogger(cfg config.Config, c *cli.Context) *logrus.Entry {
 	logger := logrus.New()
 
 	// set debug log level
@@ -128,7 +128,7 @@ func prepareLogler(cfg config.Config, c *cli.Context) *logrus.Entry {
 func runCmd(c *cli.Context) error {
 	ctx := signals.SetupSignalHandler()
 	cfg := config.LoadConfig(c)
-	log := prepareLogler(cfg, c)
+	log := prepareLogger(cfg, c)
 
 	if err := run(ctx, log, cfg); err != nil {
 		log.Fatalf("eks-lens agent failed: %v", err)
