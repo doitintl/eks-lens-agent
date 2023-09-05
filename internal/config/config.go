@@ -13,6 +13,8 @@ type Config struct {
 	StreamName string `json:"stream-name"`
 	// DevelopMode mode
 	DevelopMode bool `json:"develop-mode"`
+	// Weight Model
+
 }
 
 func LoadConfig(c *cli.Context) Config {

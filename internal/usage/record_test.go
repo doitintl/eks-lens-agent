@@ -125,18 +125,18 @@ func TestGetPodInfo(t *testing.T) {
 				},
 				Allocations: Allocations{
 					Requests: Allocation{
-						CPU:              float64(300) / 1000 * 100,
-						Memory:           float64(768) / (2 * (1 << 10)) * 100,
-						GPU:              100,
-						Storage:          float64(100) / 300 * 100,
-						StorageEphemeral: float64(4) / 10 * 100,
+						CPU:              float64(300) / 1000,
+						Memory:           float64(768) / (2 * (1 << 10)),
+						GPU:              1,
+						Storage:          float64(100) / 300,
+						StorageEphemeral: float64(4) / 10,
 					},
 					Limits: Allocation{
-						CPU:              float64(1200) / 1000 * 100,
-						Memory:           float64(1536) / (2 * (1 << 10)) * 100,
-						GPU:              100,
-						Storage:          float64(200) / 300 * 100,
-						StorageEphemeral: float64(8) / 10 * 100,
+						CPU:              float64(1200) / 1000,
+						Memory:           float64(1536) / (2 * (1 << 10)),
+						GPU:              1,
+						Storage:          float64(200) / 300,
+						StorageEphemeral: float64(8) / 10,
 					},
 				},
 				Node: NodeInfo{
@@ -157,7 +157,7 @@ func TestGetPodInfo(t *testing.T) {
 			got := GetPodInfo(tt.args.log, tt.args.pod, tt.args.beginTime, tt.args.endTime, tt.args.node)
 
 			if got.Name != tt.want.Name {
-				t.Errorf("GetPodInfo().Name = %v, want %v", got.Name, tt.want.Name)
+				t.Errorf("GetPodInfo().LongName = %v, want %v", got.Name, tt.want.Name)
 			}
 
 			if got.Namespace != tt.want.Namespace {

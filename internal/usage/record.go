@@ -17,6 +17,30 @@ const (
 	fargateType = "fargate"
 )
 
+// The cost allocation data uses relative unit weights for CPU and memory based on a 9:1 ratio.
+// For GPU, the unit weight depends on the GPU type.
+// This is derived from per vCPU per hour and per GB per hour prices in AWS Fargate
+// http://aws.amazon.com/fargate/pricing/ and GPU instance prices.
+// var (
+// cpuWeight    = 9
+// memoryWeight = 1
+//
+//	gpuWeights   = map[string]int{
+//		"g4ad": 43,  // AMD Radeon Pro V520
+//		"p4d":  625, // NVIDIA A100
+//		"p4de": 625, // NVIDIA A100
+//		"g5":   200, // NVIDIA A10G
+//		"g2":   57,  // NVIDIA K520
+//		"g4dn": 63,  // NVIDIA T4
+//		"g5g":  70,  // NVIDIA T4G
+//		"p2":   140, // NVIDIA K80
+//		"g3":   120, // NVIDIA M60
+//		"g3s":  120, // NVIDIA M60
+//		"p3":   632, // NVIDIA V100
+//		"p3dn": 632, // NVIDIA V100
+//	}
+// )
+
 type Allocation struct {
 	// CPU fraction of total CPU
 	CPU float64 `json:"cpu"`
@@ -63,6 +87,20 @@ type Capacity struct {
 	StorageEphemeral int64 `json:"storage_ephemeral,omitempty"`
 }
 
+// Cost is the cost of an instance per hour per resource
+type Cost struct {
+	// Hourly cost of instance (on-demand, spot, or reserved)
+	InstanceHour float64 `json:"instance_hour"`
+	// Unit-cost-per-resource = Hourly-instance-cost/((Memory-weight * Memory-available) + (CPU-weight * CPU-available) + (GPU-weight * GPU-available))
+	UnitCostResource float64 `json:"unit_cost_resource"`
+	// Cost-per-vCPU-hour = CPU-weight * Unit-cost-per-resource
+	VCPUHour float64 `json:"vcpu_hour"`
+	// Cost-per-memory-hour = Memory-weight * Unit-cost-per-resource
+	MemoryHour float64 `json:"memory_hour"`
+	// Cost-per-GPU-hour = GPU-weight * Unit-cost-per-resource
+	GPUHour float64 `json:"gpu_hour"`
+}
+
 type NodeInfo struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -84,6 +122,7 @@ type NodeInfo struct {
 	Allocatable    Capacity  `json:"allocatable"`
 	Capacity       Capacity  `json:"capacity"`
 	Created        time.Time `json:"created"`
+	Cost           Cost      `json:"cost"`
 }
 
 type PodInfo struct {
@@ -231,24 +270,24 @@ func GetPodInfo(log *logrus.Entry, pod *v1.Pod, beginTime, endTime time.Time, no
 		record.Node = *node
 		// calculate pod's allocation requests as a percentage of node's allocatable resources
 		if node.Allocatable.CPU > 0 {
-			record.Allocations.Requests.CPU = float64(record.Resources.Requests.CPU) / float64(node.Allocatable.CPU) * 100 //nolint:gomnd
-			record.Allocations.Limits.CPU = float64(record.Resources.Limits.CPU) / float64(node.Allocatable.CPU) * 100     //nolint:gomnd
+			record.Allocations.Requests.CPU = float64(record.Resources.Requests.CPU) / float64(node.Allocatable.CPU)
+			record.Allocations.Limits.CPU = float64(record.Resources.Limits.CPU) / float64(node.Allocatable.CPU)
 		}
 		if node.Allocatable.Memory > 0 {
-			record.Allocations.Requests.Memory = float64(record.Resources.Requests.Memory) / float64(node.Allocatable.Memory) * 100 //nolint:gomnd
-			record.Allocations.Limits.Memory = float64(record.Resources.Limits.Memory) / float64(node.Allocatable.Memory) * 100     //nolint:gomnd
+			record.Allocations.Requests.Memory = float64(record.Resources.Requests.Memory) / float64(node.Allocatable.Memory)
+			record.Allocations.Limits.Memory = float64(record.Resources.Limits.Memory) / float64(node.Allocatable.Memory)
 		}
 		if node.Allocatable.GPU > 0 {
-			record.Allocations.Requests.GPU = float64(record.Resources.Requests.GPU) / float64(node.Allocatable.GPU) * 100 //nolint:gomnd
-			record.Allocations.Limits.GPU = float64(record.Resources.Limits.GPU) / float64(node.Allocatable.GPU) * 100     //nolint:gomnd
+			record.Allocations.Requests.GPU = float64(record.Resources.Requests.GPU) / float64(node.Allocatable.GPU)
+			record.Allocations.Limits.GPU = float64(record.Resources.Limits.GPU) / float64(node.Allocatable.GPU)
 		}
 		if node.Allocatable.Storage > 0 {
-			record.Allocations.Requests.Storage = float64(record.Resources.Requests.Storage) / float64(node.Allocatable.Storage) * 100 //nolint:gomnd
-			record.Allocations.Limits.Storage = float64(record.Resources.Limits.Storage) / float64(node.Allocatable.Storage) * 100     //nolint:gomnd
+			record.Allocations.Requests.Storage = float64(record.Resources.Requests.Storage) / float64(node.Allocatable.Storage)
+			record.Allocations.Limits.Storage = float64(record.Resources.Limits.Storage) / float64(node.Allocatable.Storage)
 		}
 		if node.Allocatable.StorageEphemeral > 0 {
-			record.Allocations.Requests.StorageEphemeral = float64(record.Resources.Requests.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100 //nolint:gomnd
-			record.Allocations.Limits.StorageEphemeral = float64(record.Resources.Limits.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral) * 100     //nolint:gomnd
+			record.Allocations.Requests.StorageEphemeral = float64(record.Resources.Requests.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral)
+			record.Allocations.Limits.StorageEphemeral = float64(record.Resources.Limits.StorageEphemeral) / float64(node.Allocatable.StorageEphemeral)
 		}
 	}
 	return record
