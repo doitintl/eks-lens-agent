@@ -24,7 +24,7 @@ var (
 type AWSRegionExplorer struct{}
 
 // GetRegionMap returns a map of region ID to Region
-func (aws AWSRegionExplorer) GetRegionMap(ctx context.Context) (map[string]Region, error) {
+func (ex *AWSRegionExplorer) GetRegionMap(ctx context.Context) (map[string]Region, error) {
 	var err error
 	// load the region map from SSM parameter store, do it only once
 	once.Do(func() {
