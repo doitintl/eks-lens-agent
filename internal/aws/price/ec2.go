@@ -31,9 +31,13 @@ var (
 	regionOSPrices = map[string]Prices{}
 )
 
-func GetInstancePrice(ctx context.Context, regionID, os, osImage, instanceType string) (float64, error) {
+type RegionExplorer interface {
+	GetRegionMap(ctx context.Context) (map[string]global.Region, error)
+}
+
+func GetInstancePrice(ctx context.Context, explorer RegionExplorer, regionID, os, osImage, instanceType string) (float64, error) {
 	// load regions map
-	regions, err := global.GetRegionMap(ctx)
+	regions, err := explorer.GetRegionMap(ctx)
 	if err != nil {
 		return 0, errors.Wrap(err, "loading regions map")
 	}
